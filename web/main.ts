@@ -107,17 +107,34 @@ $("topup-btn").addEventListener("click", async () => {
 
   btn.disabled = true;
   setStatus("topup-status", "Confirm in your wallet…");
+  const before = await usdcBalance(loadSessionKey().address);
   try {
     const hash = await topUp(wallet, amount, TAG);
-    setStatus("topup-status", "Adding credit…");
-    // Poll rather than wait on a receipt: the balance is what the user cares
-    // about, and it is the thing that unblocks the next action.
-    for (let i = 0; i < 30; i++) {
-      await new Promise((r) => setTimeout(r, 2000));
-      if ((await refreshBalance()) > 0) break;
-    }
-    setStatus("topup-status", "Ready.");
+    // The receipt link goes up immediately. If the page is closed mid-wait the
+    // user still has a way to see what happened to their money.
     $("receipts").innerHTML = `<a href="${CFG.explorer}/tx/${hash}" target="_blank" rel="noopener">Top-up receipt</a>`;
+    setStatus("topup-status", "Adding credit…");
+
+    // Wait for the balance to actually rise. Comparing against the balance
+    // before the transfer matters: a user who already had credit would other-
+    // wise see "Ready" instantly, before their new money had arrived.
+    let arrived = false;
+    for (let i = 0; i < 45; i++) {
+      await new Promise((r) => setTimeout(r, 2000));
+      if ((await usdcBalance(loadSessionKey().address)) > before) {
+        arrived = true;
+        break;
+      }
+    }
+    await refreshBalance();
+
+    // Never claim success on a timeout. The transfer may still land, so say
+    // that plainly rather than reporting "Ready" over an unchanged balance.
+    setStatus(
+      "topup-status",
+      arrived ? "Ready." : "Still confirming. Your receipt is below; the credit will appear here.",
+      !arrived,
+    );
   } catch (e: any) {
     setStatus("topup-status", e?.message?.includes("reject") ? "Cancelled." : "Could not add credit. Try again.", true);
   } finally {
