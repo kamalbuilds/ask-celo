@@ -15,7 +15,11 @@ x.com. Draft:
 > session key. One ordinary transfer the user can read, then the session key
 > signs every payment after. No seed phrase, no gas, no CELO in the UI.
 >
-> Settled on mainnet → [settlement link]
+> So a MiniPay user can now pay a cent to ask what their money is worth in
+> shillings, or what sending it home actually costs. Both read live from the
+> chain.
+>
+> Live on mainnet → https://ask-celo.vercel.app
 > Registered onchain → [ERC-8004 link]
 >
 > https://ask-celo.vercel.app
@@ -41,13 +45,30 @@ in the WebView, the user makes one plain `eth_sendTransaction` transfer into it
 and from then on the session key signs the EIP-3009 authorizations that x402
 needs. Every paid question is a real facilitator settlement from a real person.
 
-What it sells is live Celo chain data rather than an LLM proxy: current gas and
-real transfer cost, Mento local-currency supply, facilitator status, block
-finality. A cent-per-call LLM wrapper is worth less than the model's own free
-tier and breaks when an upstream key dries up, which is a bad property for
-something already paid for.
+What it sells is live Celo chain data rather than an LLM proxy. The two answers
+that matter to the people MiniPay serves:
+
+- **What is my money worth?** Exchange rates between local currencies, read from
+  Mento's on-chain oracle — the same one the chain settles against, so it is the
+  rate a swap executes near rather than a counter's posted spread.
+- **What will it cost to send it?** About $0.001 in network fees, measured live,
+  against the World Bank's published 6.2% average for a $200 remittance.
+
+Also current gas, Mento supply, facilitator status and block finality.
+
+A cent-per-call LLM wrapper is worth less than the model's own free tier and
+breaks when an upstream key dries up, which is a bad property for something
+already paid for. These answers cannot be wrong about the chain, because they
+are read from it at the moment they are asked.
 
 ## What is verifiable
+
+Run `npm run verify` against the deployment, or check by hand:
+
+```bash
+curl https://ask-celo.vercel.app/api/health     # price, network, receipt status
+```
+
 
 - Session-key settlement through the deployed URL, not a local server:
   `0x5f1ebe4ccc2a44454c7322e864e1892d06704e2d1cea06ee02cda2e3dc99e503`
