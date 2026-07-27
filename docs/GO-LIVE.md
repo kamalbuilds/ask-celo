@@ -35,6 +35,19 @@ npm run register:8004            # mints the agent identity, prints the 8004scan
 npm run score                    # confirms what moved
 ```
 
+Then set these on the deployment so every paid answer writes a tagged receipt:
+
+```
+RECEIPTS_CONTRACT=<deployed address>
+RECORDER_PRIVATE_KEY=<the recorder key>
+ATTRIBUTION_TAG=<celo_… from celobuilders>
+```
+
+This part is not optional for Track 1. The x402 settlement **cannot** carry the
+attribution tag, because the facilitator sends that transaction rather than us.
+The receipt is the only transaction we control per sale, so it is what makes the
+activity countable at all. Without it, real revenue is credited to nobody.
+
 `deploy.sh` does not trust its own output: it re-reads the bytecode from the
 chain and calls `recorder()` to confirm the constructor argument landed.
 
