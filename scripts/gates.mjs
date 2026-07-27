@@ -1,0 +1,155 @@
+#!/usr/bin/env node
+/**
+ * gates.mjs — the project's feedback loop.
+ *
+ * Five ordered gates. Each is a real check against a live system, prints PASS/FAIL,
+ * and the script exits non-zero if any gate that should pass does not. Run it after
+ * every change; the number of passing gates is the progress metric.
+ *
+ *   node scripts/gates.mjs            # run all gates
+ *   node scripts/gates.mjs --only=1   # run one gate
+ *
+ * G1  facilitator reachable and advertises the exact scheme on our network
+ * G2  seller returns 402 with a decodable payment-required header naming our payTo
+ * G3  a session key signs EIP-3009, the facilitator settles, hash resolves on-chain
+ * G4  attribution tag survives on-chain (verifyTx finds the assigned celo_ code)
+ * G5  settlements counted, split by whether the payer is us or a third party
+ */
+import { createPublicClient, http } from "viem";
+import { celo, celoSepolia } from "viem/chains";
+
+const NETWORK = process.env.X402_NETWORK === "mainnet" ? "mainnet" : "testnet";
+const CFG = {
+  mainnet: {
+    caip: "eip155:42220",
+    facilitator: "https://api.x402.celo.org",
+    usdc: "0xcebA9300f2b948710d2653dD7B07f33A8B32118C",
+    chain: celo,
+    rpc: "https://forno.celo.org",
+    explorer: "https://celo.blockscout.com",
+  },
+  testnet: {
+    caip: "eip155:11142220",
+    facilitator: "https://api.x402.sepolia.celo.org",
+    usdc: "0x01C5C0122039549AD1493B8220cABEdD739BC44E",
+    chain: celoSepolia,
+    rpc: "https://forno.celo-sepolia.celo-testnet.org",
+    explorer: "https://celo-sepolia.blockscout.com",
+  },
+}[NETWORK];
+
+const SELLER = process.env.SELLER_URL ?? "http://localhost:3000";
+const PAY_TO = process.env.SELLER_PAY_TO;
+const TAG = process.env.ATTRIBUTION_TAG;
+
+let pass = 0;
+let ran = 0;
+const only = process.argv.find((a) => a.startsWith("--only="))?.split("=")[1];
+
+async function gate(n, name, fn) {
+  if (only && only !== String(n)) return;
+  ran++;
+  process.stdout.write(`G${n} ${name} ... `);
+  try {
+    const detail = await fn();
+    pass++;
+    console.log(`PASS${detail ? ` — ${detail}` : ""}`);
+  } catch (e) {
+    console.log(`FAIL — ${e.message}`);
+  }
+}
+
+// G1 — is the facilitator alive and does it support our (scheme, network) pair?
+await gate(1, `facilitator supports exact on ${CFG.caip}`, async () => {
+  const res = await fetch(`${CFG.facilitator}/supported`);
+  const ct = res.headers.get("content-type") ?? "";
+  if (!ct.includes("json")) throw new Error(`expected JSON, got ${ct} (SPA false-green?)`);
+  const body = await res.json();
+  const kinds = body.kinds ?? [];
+  const hit = kinds.find((k) => k.scheme === "exact" && k.network === CFG.caip);
+  if (!hit) throw new Error(`no exact/${CFG.caip} in ${JSON.stringify(kinds).slice(0, 200)}`);
+  return `x402Version ${hit.x402Version}`;
+});
+
+// G2 — unpaid request must be exactly 402, and the challenge must name our payTo.
+await gate(2, "seller returns a well-formed 402 challenge", async () => {
+  const res = await fetch(`${SELLER}/api/ask`, { method: "POST", body: "{}" });
+  if (res.status !== 402) throw new Error(`expected 402, got ${res.status}`);
+  const header = res.headers.get("payment-required");
+  if (!header) throw new Error("no payment-required header");
+  const challenge = JSON.parse(Buffer.from(header, "base64").toString());
+  const accepts = challenge.accepts?.[0];
+  if (!accepts) throw new Error("challenge has no accepts[]");
+  if (accepts.network !== CFG.caip) throw new Error(`challenge network ${accepts.network}`);
+  if (PAY_TO && accepts.payTo?.toLowerCase() !== PAY_TO.toLowerCase())
+    throw new Error(`payTo ${accepts.payTo} != ${PAY_TO}`);
+  return `${accepts.price?.amount ?? accepts.maxAmountRequired} base units to ${accepts.payTo?.slice(0, 10)}…`;
+});
+
+// G3 — THE KILL TEST. A session key (not a browser wallet) must be able to pay.
+// If a session-key signature cannot settle, the entire product thesis is dead.
+await gate(3, "session key signs EIP-3009 and the facilitator settles", async () => {
+  if (!process.env.SESSION_TEST_KEY)
+    throw new Error("set SESSION_TEST_KEY to a funded throwaway key to run the kill test");
+  const { x402Client, wrapFetchWithPayment } = await import("@x402/fetch");
+  const { ExactEvmScheme } = await import("@x402/evm/exact/client");
+  const { privateKeyToAccount } = await import("viem/accounts");
+
+  const account = privateKeyToAccount(process.env.SESSION_TEST_KEY);
+  const client = new x402Client();
+  client.register("eip155:*", new ExactEvmScheme(account));
+  const payFetch = wrapFetchWithPayment(fetch, client);
+
+  const res = await payFetch(`${SELLER}/api/ask`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ q: "gate check" }),
+  });
+  if (res.status !== 200) throw new Error(`paid request returned ${res.status}`);
+  const receipt = res.headers.get("payment-response");
+  if (!receipt) throw new Error("200 but no payment-response header — nothing settled");
+  const decoded = JSON.parse(Buffer.from(receipt, "base64").toString());
+  const hash = decoded.transaction ?? decoded.txHash;
+  if (!hash) throw new Error(`receipt has no tx hash: ${JSON.stringify(decoded).slice(0, 200)}`);
+
+  // The receipt is the seller's claim. Confirm it against the chain.
+  const pub = createPublicClient({ chain: CFG.chain, transport: http(CFG.rpc) });
+  const rcpt = await pub.getTransactionReceipt({ hash });
+  if (rcpt.status !== "success") throw new Error(`settlement tx reverted: ${hash}`);
+  return `settled ${hash}`;
+});
+
+// G4 — the tag is worthless if it does not survive on-chain. Assert, never assume:
+// the docs warn that some smart-account and relayer paths strip trailing calldata.
+await gate(4, "attribution tag survives on-chain", async () => {
+  const hash = process.env.TAGGED_TX_HASH;
+  if (!hash) throw new Error("set TAGGED_TX_HASH to a real top-up tx to check the tag");
+  if (!TAG) throw new Error("ATTRIBUTION_TAG not set — register on celobuilders first");
+  const { verifyTx } = await import("@celo/attribution-tags");
+  const pub = createPublicClient({ chain: CFG.chain, transport: http(CFG.rpc) });
+  const result = await verifyTx({ client: pub, hash });
+  if (!result) throw new Error(`no ERC-8021 suffix found on ${hash}`);
+  if (!result.codes.includes(TAG))
+    throw new Error(`tag missing: found ${JSON.stringify(result.codes)}, want ${TAG}`);
+  return `codes ${JSON.stringify(result.codes)}`;
+});
+
+// G5 — the number that actually wins the track, and the one that survives sybil review:
+// settlements whose payer is somebody other than us.
+await gate(5, "settlements counted, third-party payers separated", async () => {
+  if (!PAY_TO) throw new Error("SELLER_PAY_TO not set");
+  const url = `${CFG.explorer}/api/v2/addresses/${PAY_TO}/token-transfers?type=ERC-20`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`explorer returned ${res.status}`);
+  const items = (await res.json()).items ?? [];
+  const incoming = items.filter((t) => t.to?.hash?.toLowerCase() === PAY_TO.toLowerCase());
+  const mine = new Set(
+    (process.env.OUR_WALLETS ?? "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean),
+  );
+  const external = incoming.filter((t) => !mine.has(t.from?.hash?.toLowerCase()));
+  const payers = new Set(external.map((t) => t.from?.hash?.toLowerCase()));
+  return `${incoming.length} settlements, ${external.length} from ${payers.size} third-party payers`;
+});
+
+console.log(`\n${pass}/${ran} gates passing`);
+process.exit(pass === ran ? 0 : 1);

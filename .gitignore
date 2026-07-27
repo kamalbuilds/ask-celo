@@ -1,0 +1,6 @@
+node_modules/
+.env
+.env.local
+.submission.json
+.score-history.jsonl
+.next/
