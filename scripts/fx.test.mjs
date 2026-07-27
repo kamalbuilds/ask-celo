@@ -13,14 +13,11 @@ import { createPublicClient, http, getAddress } from "viem";
 import { celo } from "viem/chains";
 import assert from "node:assert/strict";
 
-const SORTED_ORACLES = "0xefB84935239dAcdecF7c5bA76d8dE40b077B7b33";
-const MENTO = {
-  cUSD: "0x765DE816845861e75A25fCA122bb6898B8B1282a",
-  cEUR: "0xD8763CBa276a3738E6DE85b4b3bF5FDed6D6cA73",
-  cREAL: "0xe8537a3d056DA446677B9E9d6c5dB704EaAb4787",
-  cKES: "0x456a3D042C0DbD3db53D5489e98dFb038553B0d0",
-  cCOP: "0x8A567e2aE79CA692Bd748aB832081C45de4041eA",
-};
+// Import the addresses and gas figure the PRODUCT uses. Duplicating them here
+// meant the test could keep passing against constants the product no longer
+// used — validating the wrong thing while reporting success.
+import { MENTO_MAINNET as MENTO, SORTED_ORACLES, TRANSFER_GAS } from "../src/inference.ts";
+
 
 const ABI = [
   {
@@ -122,7 +119,7 @@ await check("distinct currencies do not resolve to the same rate", () => {
 await check("a stablecoin transfer costs a fraction of a cent", async () => {
   const gasPrice = await client.getGasPrice();
   const celoUsd = rates.cUSD; // cUSD per CELO, from the same oracle
-  const feeUsd = ((Number(gasPrice) * 86_000) / 1e18) * celoUsd;
+  const feeUsd = ((Number(gasPrice) * TRANSFER_GAS) / 1e18) * celoUsd;
 
   // Celo's whole pitch is sub-cent fees. If this ever reads above a cent the
   // number is wrong, or the chain has changed enough that the copy is a lie.
@@ -132,7 +129,7 @@ await check("a stablecoin transfer costs a fraction of a cent", async () => {
 
 await check("the fee is negligible against a real remittance", async () => {
   const gasPrice = await client.getGasPrice();
-  const feeUsd = ((Number(gasPrice) * 86_000) / 1e18) * rates.cUSD;
+  const feeUsd = ((Number(gasPrice) * TRANSFER_GAS) / 1e18) * rates.cUSD;
   const pct = (feeUsd / 200) * 100;
   // The World Bank average is 6.2%. Ours should be orders below, not near it.
   assert.ok(pct < 0.1, `fee is ${pct.toFixed(4)}% of $200 — too close to traditional rails to be right`);

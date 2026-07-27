@@ -22,14 +22,14 @@ const client = createPublicClient({ chain: CFG.chain, transport: http(CFG.rpc) }
  * transferWithAuthorization txs). Two earlier guesses were both wrong: 21,000
  * is a bare native send, and 65,000 undercounted an ERC-20 transfer.
  */
-const TRANSFER_GAS = 86_000;
+export const TRANSFER_GAS = 86_000;
 
 /**
  * Mento local-currency stablecoins, the thing Celo has that other chains do not.
  * Mainnet only: these are not deployed on Sepolia, and reading them there throws
  * a confusing "function does not exist" rather than returning nothing.
  */
-const MENTO_MAINNET = {
+export const MENTO_MAINNET = {
   cUSD: "0x765DE816845861e75A25fCA122bb6898B8B1282a",
   cEUR: "0xD8763CBa276a3738E6DE85b4b3bF5FDed6D6cA73",
   cREAL: "0xe8537a3d056DA446677B9E9d6c5dB704EaAb4787",
@@ -85,7 +85,7 @@ async function stablecoinAnswer() {
  * Dividing two of them gives a real FX rate between local currencies, sourced
  * on-chain rather than from a rate-shop's website.
  */
-const SORTED_ORACLES = "0xefB84935239dAcdecF7c5bA76d8dE40b077B7b33";
+export const SORTED_ORACLES = "0xefB84935239dAcdecF7c5bA76d8dE40b077B7b33";
 const ORACLE_ABI = [
   {
     type: "function",
