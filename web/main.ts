@@ -35,6 +35,9 @@ async function refreshBalance() {
     left > 0 ? `${left} question${left === 1 ? "" : "s"} left` : "Add credit to ask a question";
   $<HTMLButtonElement>("ask-btn").disabled = left < 1;
   show("sweep", usd > 0);
+  // Only warn when there is something to lose. A standing warning on an empty
+  // balance is noise; this appears precisely when clearing data would cost money.
+  show("storage-note", usd > 0);
   return usd;
 }
 
