@@ -7,6 +7,7 @@ import { HTTPFacilitatorClient } from "@x402/core/server";
 import { getAddress } from "viem";
 import { NETWORK, CFG } from "./config.js";
 import { answer } from "./inference.js";
+import { recordReceipt } from "./receipts.js";
 
 const PAY_TO = getAddress(process.env.SELLER_PAY_TO!);
 
@@ -42,6 +43,25 @@ const routes = {
 const app = new Hono();
 
 app.use("/api/*", cors({ origin: "*", allowHeaders: ["content-type", "x-payment"], exposeHeaders: ["payment-required", "payment-response"] }));
+/**
+ * Settlement happens *after* the route handler returns, so the receipt header
+ * does not exist inside the handler — checking there silently recorded nothing.
+ * This wraps the payment middleware instead, and runs once settlement is real.
+ */
+app.use("/api/ask", async (c, next) => {
+  await next();
+  const header = c.res?.headers.get("payment-response");
+  if (!header) return;
+  try {
+    const decoded = JSON.parse(Buffer.from(header, "base64").toString());
+    const hash = decoded.transaction ?? decoded.txHash;
+    const payer = decoded.payer ?? decoded.from;
+    if (hash && payer) recordReceipt(payer, 10_000n, hash);
+  } catch {
+    // A malformed receipt header must never affect the paid response.
+  }
+});
+
 app.use(paymentMiddleware(routes, server)); // routes first, then server
 
 app.get("/api/health", (c) => c.json({ ok: true, network: NETWORK, caip: CFG.caip, payTo: PAY_TO }));

@@ -7,6 +7,7 @@ import { HTTPFacilitatorClient } from "@x402/core/server";
 import { getAddress } from "viem";
 import { NETWORK, CFG } from "../src/config.js";
 import { answer } from "../src/inference.js";
+import { recordReceipt } from "../src/receipts.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -53,6 +54,25 @@ app.use(
     exposeHeaders: ["payment-required", "payment-response"],
   }),
 );
+/**
+ * Settlement happens *after* the route handler returns, so the receipt header
+ * does not exist inside the handler — checking there silently recorded nothing.
+ * This wraps the payment middleware instead, and runs once settlement is real.
+ */
+app.use("/api/ask", async (c, next) => {
+  await next();
+  const header = c.res?.headers.get("payment-response");
+  if (!header) return;
+  try {
+    const decoded = JSON.parse(Buffer.from(header, "base64").toString());
+    const hash = decoded.transaction ?? decoded.txHash;
+    const payer = decoded.payer ?? decoded.from;
+    if (hash && payer) recordReceipt(payer, 10_000n, hash);
+  } catch {
+    // A malformed receipt header must never affect the paid response.
+  }
+});
+
 app.use(paymentMiddleware(routes, server));
 
 app.get("/api/health", (c) =>
