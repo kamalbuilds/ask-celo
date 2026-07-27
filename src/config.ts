@@ -4,12 +4,24 @@ import { celo, celoSepolia } from "viem/chains";
  * Shared by the seller (Node) and the Mini App (browser), so it must not touch
  * `process` directly: `process` is undefined in a browser and referencing it
  * throws at module load, which silently blanks the whole page.
+ *
+ * Note the asymmetry, which has caused two production bugs so far: in the
+ * browser this reads `VITE_<key>`, because Vite only exposes prefixed
+ * variables to the bundle. Setting `X402_NETWORK` alone left the frontend on
+ * Sepolia while the API charged mainnet; setting `ATTRIBUTION_TAG` alone would
+ * have shipped every top-up untagged. Any deployment must set BOTH forms.
+ *
+ * BROWSER_KEYS names the ones that matter, so a deploy script can assert it
+ * rather than rediscovering this the hard way.
  */
 const env = (key: string): string | undefined => {
   const viteEnv = (import.meta as any).env;
   if (viteEnv) return viteEnv[`VITE_${key}`];
   return typeof process === "undefined" ? undefined : process.env[key];
 };
+
+/** Env vars the browser bundle needs, which therefore need a VITE_ twin. */
+export const BROWSER_KEYS = ["X402_NETWORK", "ATTRIBUTION_TAG"] as const;
 
 export const NETWORK = env("X402_NETWORK") === "mainnet" ? "mainnet" : "testnet";
 

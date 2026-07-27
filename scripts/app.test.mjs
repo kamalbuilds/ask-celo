@@ -93,5 +93,17 @@ await check("the browser can read the headers it needs", async () => {
   assert.match(exposed, /payment-response/);
 });
 
+
+await check("every browser-facing env var has a VITE_ twin in go-live", async () => {
+  // Two production bugs came from setting the server form and not the browser
+  // one. This asserts the deploy script sets both, so the third does not happen.
+  const { readFileSync } = await import("node:fs");
+  const goLive = readFileSync(new URL("./go-live.sh", import.meta.url), "utf8");
+  const { BROWSER_KEYS } = await import("../src/config.ts");
+  for (const key of BROWSER_KEYS) {
+    assert.ok(goLive.includes(`VITE_${key}=`), `go-live.sh never sets VITE_${key}`);
+  }
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
