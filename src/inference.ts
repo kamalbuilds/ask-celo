@@ -157,6 +157,38 @@ async function fxAnswer(q: string) {
   );
 }
 
+/**
+ * What sending money actually costs, which is the question behind most
+ * remittance searches. The Celo side is measured live; the comparison figure
+ * is the World Bank's published global average (Remittance Prices Worldwide,
+ * ~6.2% of a $200 transfer) and is labelled as such rather than implied.
+ */
+async function remittanceAnswer(q: string) {
+  const mainnet = mainnetClient();
+  const [gasPrice, celoUsd] = await Promise.all([
+    mainnet.getGasPrice(),
+    ratePerCelo(MENTO_MAINNET.cUSD),
+  ]);
+
+  // A stablecoin transfer is about 65k gas. medianRate(cUSD) quotes cUSD per
+  // CELO directly, so it multiplies — inverting it overstated the fee ~250x,
+  // which would have been a confidently wrong number about money.
+  const feeUsd = (Number(gasPrice) * 65_000 / 1e18) * celoUsd;
+
+  const amount = Number(q.match(/\$?\s?(\d{2,6})/)?.[1] ?? 200);
+  const WORLD_BANK_PCT = 6.2;
+  const traditional = (amount * WORLD_BANK_PCT) / 100;
+  const pct = (feeUsd / amount) * 100;
+
+  return (
+    `Sending $${amount} in stablecoins on Celo costs about $${feeUsd.toFixed(4)} in network fees ` +
+    `(${pct.toFixed(4)}% of the amount), at ${(Number(gasPrice) / 1e9).toFixed(1)} gwei right now. ` +
+    `The World Bank puts the global average cost of sending $200 at ${WORLD_BANK_PCT}%; ` +
+    `at that rate this transfer would cost about $${traditional.toFixed(2)}. ` +
+    `The fee can be paid in the stablecoin itself, so no separate gas token is needed.`
+  );
+}
+
 async function x402Answer() {
   const res = await fetch(`${CFG.facilitator}/supported`);
   const kinds = (await res.json()).kinds ?? [];
@@ -179,7 +211,11 @@ async function blockAnswer() {
 
 const TOPICS: Array<{ match: RegExp; run: (q: string) => Promise<string> }> = [
   {
-    match: /\b(usd|eur|kes|cop|brl|real|reais|shillings?|pesos?|dollars?|euros?|kenya\w*|colombia\w*|brazil\w*|rate|exchange|fx|convert|worth|send money|remit\w*)\b/i,
+    match: /\b(remit\w*|send(ing)? money|transfer fee|western union|moneygram|wire|abroad|back home|diaspora)\b/i,
+    run: remittanceAnswer,
+  },
+  {
+    match: /\b(usd|eur|kes|cop|brl|real|reais|shillings?|pesos?|dollars?|euros?|kenya\w*|colombia\w*|brazil\w*|rate|exchange|fx|convert|worth)\b/i,
     run: fxAnswer,
   },
   { match: /\bgas|fee|cost|cheap|price of a (tx|transaction)/i, run: gasAnswer },
