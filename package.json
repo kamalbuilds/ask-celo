@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "node scripts/tag.test.mjs",
     "dev": "vite",
-    "build": "vite build"
+    "build": "vite build",
+    "register:8004": "node scripts/register-8004.mjs"
   },
   "dependencies": {
     "@celo/attribution-tags": "^0.2.0",
