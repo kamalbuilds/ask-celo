@@ -12,9 +12,30 @@
 import { execFileSync } from "node:child_process";
 import { appendFileSync, readFileSync, existsSync } from "node:fs";
 
+// Read the deployed state so the score measures production by default. Passing
+// these by hand each time meant an easy way to score the wrong thing: a run
+// against localhost with no payTo reported 0 settlements and looked like a
+// regression when nothing had regressed.
+const state = existsSync(".submission.json")
+  ? JSON.parse(readFileSync(".submission.json", "utf8"))
+  : {};
+const env = {
+  ...process.env,
+  SELLER_URL: process.env.SELLER_URL ?? state.liveUrl ?? "http://localhost:3000",
+  SELLER_PAY_TO: process.env.SELLER_PAY_TO ?? state.payTo ?? "",
+  OUR_WALLETS: process.env.OUR_WALLETS ?? (state.ourWallets ?? []).join(","),
+  ATTRIBUTION_TAG: process.env.ATTRIBUTION_TAG ?? state.attributionTag ?? "",
+};
+if (!env.SESSION_TEST_KEY && existsSync(".session-test.json")) {
+  env.SESSION_TEST_KEY = JSON.parse(readFileSync(".session-test.json", "utf8")).privateKey;
+}
+if (!env.X402_API_KEY && existsSync(".env.local")) {
+  env.X402_API_KEY = readFileSync(".env.local", "utf8").match(/X402_API_KEY=(\S+)/)?.[1] ?? "";
+}
+
 function run(script) {
   try {
-    return execFileSync("node", [script], { encoding: "utf8", timeout: 120000 });
+    return execFileSync("node", [script], { encoding: "utf8", timeout: 120000, env });
   } catch (e) {
     return (e.stdout ?? "") + (e.stderr ?? "");
   }
