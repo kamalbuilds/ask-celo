@@ -56,20 +56,33 @@ export const receiptStats = { attempted: 0, recorded: 0, failed: 0, lastError: "
  * failing must never turn a successful paid call into an error. Failures are
  * logged, not raised.
  */
-export function recordReceipt(user: string, micros: bigint, settlementTx: string): void {
-  if (!wallet || !address) return;
-
+/**
+ * Build the receipt calldata, tag included.
+ *
+ * Exported so a test can exercise the shipped builder rather than retyping the
+ * same concatenation. Only the assigned tag is credited, so a receipt that
+ * loses it is on-chain activity attributed to nobody.
+ */
+export function buildReceiptData(
+  user: string,
+  micros: bigint,
+  settlementTx: string,
+  attributionTag = tag,
+): Hex {
   const data = encodeFunctionData({
     abi: ABI,
     functionName: "record",
     args: [getAddress(user), micros, settlementTx as Hex],
   });
+  return attributionTag ? concat([data, toDataSuffix(attributionTag)]) : data;
+}
+
+export function recordReceipt(user: string, micros: bigint, settlementTx: string): void {
+  if (!wallet || !address) return;
 
   const tx = {
     to: getAddress(address),
-    // Only the assigned tag is credited, so it must be present. Untagged
-    // activity is invisible to the leaderboard no matter how real it is.
-    data: tag ? concat([data, toDataSuffix(tag)]) : data,
+    data: buildReceiptData(user, micros, settlementTx),
   };
 
   // Prefer paying gas in USDC so the recorder needs no CELO. Not every adapter

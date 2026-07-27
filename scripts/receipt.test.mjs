@@ -13,6 +13,7 @@
 import { encodeFunctionData, decodeFunctionData, concat, getAddress } from "viem";
 import { toDataSuffix, fromDataSuffix } from "@celo/attribution-tags";
 import assert from "node:assert/strict";
+import * as productReceipts from "../src/receipts.ts";
 
 const ABI = [
   {
@@ -154,6 +155,25 @@ check("the price is consistent wherever it is expressed", () => {
   assert.equal(Number(PRICE.micros) / 1e6, PRICE.usd, "micros do not equal the dollar figure");
   assert.equal(PRICE.display, `$${PRICE.usd.toFixed(2)}`, "display string does not match the value");
   assert.equal(PRICE.short, `${Math.round(PRICE.usd * 100)}c`, "short label does not match the value");
+});
+
+// The receipt tests above assert calldata this file builds. That is a formula
+// retyped in a test — the same hollowness that let the FX inversion through.
+// This one calls the real builder, so removing the tag from receipts.ts fails.
+check("the receipt the PRODUCT builds carries the tag", () => {
+  const { buildReceiptData } = productReceipts;
+  const tagged = buildReceiptData(PAYER, 10_000n, SETTLEMENT, "celo_b7k3p9da1234");
+  const decoded = fromDataSuffix(tagged);
+  assert.ok(decoded, "receipts.ts produced calldata with no ERC-8021 suffix");
+  assert.ok(
+    decoded.codes.includes("celo_b7k3p9da1234"),
+    `tag missing from the shipped builder: ${JSON.stringify(decoded?.codes)}`,
+  );
+
+  // And the call underneath must still be intact.
+  const { functionName, args } = decodeFunctionData({ abi: ABI, data: tagged });
+  assert.equal(functionName, "record");
+  assert.equal(args[1], 10_000n);
 });
 
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
