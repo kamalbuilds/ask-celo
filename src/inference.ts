@@ -72,6 +72,91 @@ async function stablecoinAnswer() {
   );
 }
 
+/**
+ * Mento's on-chain oracle: the median CELO rate for each local stablecoin.
+ * Dividing two of them gives a real FX rate between local currencies, sourced
+ * on-chain rather than from a rate-shop's website.
+ */
+const SORTED_ORACLES = "0xefB84935239dAcdecF7c5bA76d8dE40b077B7b33";
+const ORACLE_ABI = [
+  {
+    type: "function",
+    name: "medianRate",
+    stateMutability: "view",
+    inputs: [{ name: "token", type: "address" }],
+    outputs: [
+      { name: "numerator", type: "uint256" },
+      { name: "denominator", type: "uint256" },
+    ],
+  },
+] as const;
+
+/** Local currency names, because "cKES" means nothing to the person holding it. */
+const CURRENCY = {
+  cUSD: "US dollars",
+  cEUR: "euros",
+  cREAL: "Brazilian reais",
+  cKES: "Kenyan shillings",
+  cCOP: "Colombian pesos",
+} as const;
+
+const mainnetClient = () =>
+  createPublicClient({ chain: celo, transport: http("https://forno.celo.org") });
+
+async function ratePerCelo(token: string) {
+  const [num, den] = await mainnetClient().readContract({
+    address: getAddress(SORTED_ORACLES),
+    abi: ORACLE_ABI,
+    functionName: "medianRate",
+    args: [getAddress(token)],
+  });
+  return Number(num) / Number(den);
+}
+
+/**
+ * What a paycheck is worth in another currency, from the oracle the chain
+ * itself settles against. This is the question someone sending money home
+ * actually asks, and the answer is worth more than the cent it costs.
+ */
+async function fxAnswer(q: string) {
+  // Match on how people actually name money, not on ticker symbols. "pesos",
+  // "brazil" and "shillings" must each find the right currency; matching only
+  // the ticker made every query fall through to the same default.
+  const ALIASES: Array<[keyof typeof MENTO_MAINNET, RegExp]> = [
+    ["cUSD", /\b(usd|dollars?|usdc?|usdt)\b/i],
+    ["cEUR", /\b(eur|euros?)\b/i],
+    ["cREAL", /\b(real|reais|brl|brazil(ian)?)\b/i],
+    ["cKES", /\b(kes|shillings?|kenya(n)?)\b/i],
+    ["cCOP", /\b(cop|pesos?|colombia(n)?)\b/i],
+  ];
+
+  // Order by where each currency appears, so "USD to KES" and "KES to USD"
+  // are not the same question.
+  const found = ALIASES.map(([sym, re]) => [sym, q.search(re)] as const)
+    .filter(([, i]) => i >= 0)
+    .sort((x, y) => x[1] - y[1])
+    .map(([sym]) => sym);
+
+  const pair: [keyof typeof MENTO_MAINNET, keyof typeof MENTO_MAINNET] =
+    found.length >= 2 ? [found[0], found[1]] : ["cUSD", found[0] ?? "cKES"];
+  const [a, b] = pair;
+  if (a === b) return `Name two different currencies, for example "USD to KES".`;
+
+  const [rateA, rateB] = await Promise.all([
+    ratePerCelo(MENTO_MAINNET[a]),
+    ratePerCelo(MENTO_MAINNET[b]),
+  ]);
+
+  // Both are quoted per CELO, so the ratio cancels CELO out.
+  const rate = rateB / rateA;
+  return (
+    `1 ${a.slice(1)} = ${rate.toFixed(rate > 100 ? 0 : 4)} ${b.slice(1)}, ` +
+    `from Mento's on-chain oracle (${CURRENCY[a]} to ${CURRENCY[b]}). ` +
+    `This is the rate the chain settles at, so a swap on Celo executes near it ` +
+    `rather than at a counter's posted spread.`
+  );
+}
+
 async function x402Answer() {
   const res = await fetch(`${CFG.facilitator}/supported`);
   const kinds = (await res.json()).kinds ?? [];
@@ -92,7 +177,11 @@ async function blockAnswer() {
   );
 }
 
-const TOPICS: Array<{ match: RegExp; run: () => Promise<string> }> = [
+const TOPICS: Array<{ match: RegExp; run: (q: string) => Promise<string> }> = [
+  {
+    match: /\b(usd|eur|kes|cop|brl|real|reais|shillings?|pesos?|dollars?|euros?|kenya\w*|colombia\w*|brazil\w*|rate|exchange|fx|convert|worth|send money|remit\w*)\b/i,
+    run: fxAnswer,
+  },
   { match: /\bgas|fee|cost|cheap|price of a (tx|transaction)/i, run: gasAnswer },
   { match: /\bstablecoin|mento|cusd|ckes|creal|ceur|ccop|local currency/i, run: stablecoinAnswer },
   { match: /\bx402|facilitator|micropayment|pay per|402/i, run: x402Answer },
@@ -101,12 +190,12 @@ const TOPICS: Array<{ match: RegExp; run: () => Promise<string> }> = [
 
 export async function answer(q: string): Promise<string> {
   const topic = TOPICS.find((t) => t.match.test(q));
-  if (topic) return topic.run();
+  if (topic) return topic.run(q);
 
   // Say what it does know rather than bluffing. Someone just paid for this.
   return (
-    `I answer questions about Celo from live chain data: gas and transaction costs, ` +
-    `Mento stablecoin supply, x402 facilitator status, and current block and finality. ` +
-    `Ask about one of those and you get the number as it is right now, not a cached figure.`
+    `I answer from live Celo chain data. Try an exchange rate ("what is USD to KES"), ` +
+    `what a transaction costs, how much of a local stablecoin exists, or how fast blocks are. ` +
+    `Every answer is read at the moment you ask, not cached.`
   );
 }
