@@ -94,7 +94,17 @@ app.post("/api/refund", async (c) => {
 });
 
 app.get("/api/health", (c) =>
-  c.json({ ok: true, network: NETWORK, caip: CFG.caip, payTo: PAY_TO }),
+  c.json({
+    ok: true,
+    network: NETWORK,
+    caip: CFG.caip,
+    payTo: PAY_TO,
+    // The 402 challenge is base64 in a header, which is right for machines and
+    // useless to a person holding a wallet wondering what this costs. State the
+    // terms in plain JSON so they are readable with curl alone.
+    price: { amount: "10000", decimals: 6, display: "$0.01", asset: CFG.usdc, symbol: "USDC" },
+    docs: "https://github.com/kamalbuilds/ask-celo/blob/master/docs/TRY-IT.md",
+  }),
 );
 
 app.post("/api/ask", async (c) => {
