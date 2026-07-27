@@ -26,19 +26,26 @@ import { settleRefund } from "./refund.js";
  * booted fine, served a healthy /api/health, and then failed every settlement:
  * a service that looks up and cannot take money.
  */
-function required(key: string): string {
+function required(key: string, looksValid: (v: string) => boolean = Boolean): string {
   const value = process.env[key];
-  if (!value) {
+  // An unfilled placeholder from .env.example is present but useless, and
+  // passing a truthy check only moves the failure somewhere less clear: `0x`
+  // reached viem and produced "Address 0x is invalid" instead of naming the
+  // variable the reader needs to fill in.
+  if (!value || !looksValid(value)) {
     throw new Error(
-      `${key} is not set. The service cannot take payments without it — see .env.example.`,
+      `${key} is not set to a usable value (got ${JSON.stringify(value ?? null)}). ` +
+        `The service cannot take payments without it — see .env.example.`,
     );
   }
   return value;
 }
 
+const isAddress = (v: string) => /^0x[a-fA-F0-9]{40}$/.test(v);
+
 export function createApp() {
-  const PAY_TO = getAddress(required("SELLER_PAY_TO"));
-  required("X402_API_KEY");
+  const PAY_TO = getAddress(required("SELLER_PAY_TO", isAddress));
+  required("X402_API_KEY", (v) => v.startsWith("x402_"));
 
   const facilitator = new HTTPFacilitatorClient({
     url: CFG.facilitator,

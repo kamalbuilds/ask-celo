@@ -70,17 +70,26 @@ for both paths, including how to read the payment terms without paying.
 
 ```bash
 npm install
-
-# seller — the paid API
-X402_NETWORK=testnet \
-X402_API_KEY=x402_...            # from https://x402.celo.org (connect wallet → Create API key)
-SELLER_PAY_TO=0xYourWallet \
-LLM_API_KEY=sk-... \
-npm run seller
-
-# the Mini App
-npm run dev
+cp .env.example .env.local        # then fill it in, see the notes below
 ```
+
+`.env.local` needs three values:
+
+| Variable | Where it comes from |
+|---|---|
+| `X402_API_KEY` | run `npm run x402:key` — signs a message with a throwaway wallet, no gas |
+| `SELLER_PAY_TO` | the wallet that receives payments |
+| `X402_NETWORK` | `testnet` to start, `mainnet` when you mean it |
+
+Then, in two terminals:
+
+```bash
+npm run seller                    # the paid API
+npm run dev                       # the Mini App
+```
+
+The service refuses to start if `SELLER_PAY_TO` or `X402_API_KEY` is missing,
+rather than booting and failing at the first sale.
 
 Testing inside MiniPay needs an https tunnel (`ngrok http 5173`) and a physical
 Android device; MiniPay does not run in an emulator.
