@@ -8,6 +8,7 @@ import { getAddress } from "viem";
 import { NETWORK, CFG } from "../src/config.js";
 import { answer } from "../src/inference.js";
 import { recordReceipt } from "../src/receipts.js";
+import { settleRefund } from "../src/refund.js";
 
 export const config = { runtime: "nodejs" };
 
@@ -74,6 +75,23 @@ app.use("/api/ask", async (c, next) => {
 });
 
 app.use(paymentMiddleware(routes, server));
+
+// Refunds. The session key cannot send an ordinary transfer (it holds USDC and
+// no CELO), so returning funds goes through the facilitator like any payment.
+app.post("/api/refund", async (c) => {
+  const { signature, authorization } = await c.req
+    .json<{ signature?: string; authorization?: Record<string, string> }>()
+    .catch(() => ({ signature: undefined, authorization: undefined }));
+
+  if (!signature || !authorization?.from || !authorization?.to || !authorization?.value) {
+    return c.json({ error: "signature and authorization required" }, 400);
+  }
+  try {
+    return c.json({ transaction: await settleRefund(signature, authorization) });
+  } catch (err) {
+    return c.json({ error: err instanceof Error ? err.message : "refund failed" }, 502);
+  }
+});
 
 app.get("/api/health", (c) =>
   c.json({ ok: true, network: NETWORK, caip: CFG.caip, payTo: PAY_TO }),

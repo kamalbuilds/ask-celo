@@ -92,26 +92,75 @@ export async function topUp(from: Address, amountUsd: number, tag?: string): Pro
 }
 
 /**
- * Return whatever is left to the user's own wallet. The session key is a
- * convenience, so getting money out of it must not depend on our server
- * being up or on us being trustworthy.
+ * Return whatever is left to the user's own wallet.
+ *
+ * This cannot be an ordinary ERC-20 transfer. The session key is funded with
+ * USDC and never with CELO, so a normal transfer reverts with "gas required
+ * exceeds allowance (0)" — verified against a real key holding 19.68 USDC and
+ * no gas. The USDC fee-currency adapter does not rescue it either, because the
+ * adapter still needs the account to be able to pay.
+ *
+ * So the refund uses the same mechanism the payments use: an EIP-3009
+ * authorization settled by the facilitator, which submits the transaction and
+ * pays the gas. The user needs nothing, and this works even when the session
+ * key holds no gas at all — which is always.
  */
 export async function sweepBack(to: Address): Promise<Hex | null> {
   const session = loadSessionKey();
   const balance = await usdcBalance(session.address);
   if (balance === 0n) return null;
 
-  const wallet = createWalletClient({
-    account: privateKeyToAccount(session.privateKey),
-    chain: CFG.chain,
-    transport: http(CFG.rpc),
+  const account = privateKeyToAccount(session.privateKey);
+  const now = Math.floor(Date.now() / 1000);
+  const nonce = `0x${[...crypto.getRandomValues(new Uint8Array(32))]
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("")}` as Hex;
+
+  const authorization = {
+    from: account.address,
+    to,
+    value: balance.toString(),
+    validAfter: String(now - 60),
+    validBefore: String(now + 3600),
+    nonce,
+  };
+
+  const signature = await account.signTypedData({
+    domain: {
+      name: "USDC",
+      version: "2",
+      chainId: CFG.chain.id,
+      verifyingContract: getAddress(CFG.usdc),
+    },
+    types: {
+      TransferWithAuthorization: [
+        { name: "from", type: "address" },
+        { name: "to", type: "address" },
+        { name: "value", type: "uint256" },
+        { name: "validAfter", type: "uint256" },
+        { name: "validBefore", type: "uint256" },
+        { name: "nonce", type: "bytes32" },
+      ],
+    },
+    primaryType: "TransferWithAuthorization",
+    message: {
+      from: account.address,
+      to,
+      value: balance,
+      validAfter: BigInt(authorization.validAfter),
+      validBefore: BigInt(authorization.validBefore),
+      nonce,
+    },
   });
 
-  return wallet.writeContract({
-    address: getAddress(CFG.usdc),
-    abi: erc20Abi,
-    functionName: "transfer",
-    args: [to, balance],
-    feeCurrency: getAddress(CFG.usdcAdapter),
-  } as any);
+  // Our own server relays this to the facilitator, because settlement needs the
+  // metering key and that must never reach the browser.
+  const res = await fetch("/api/refund", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ signature, authorization }),
+  });
+
+  if (!res.ok) throw new Error(`refund failed (${res.status})`);
+  return (await res.json()).transaction ?? null;
 }
