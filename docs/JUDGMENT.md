@@ -96,3 +96,21 @@ rejections verified against production.
 - **Paying for errors.** The middleware verifies, runs the handler, and cancels
   settlement if the handler throws or returns >= 400. Confirmed on-chain when an
   upstream failed: the request errored and no funds moved.
+
+### Money claims are measured, not asserted
+
+A category worth naming, because tests cannot catch it: a function can return
+successfully, print exactly the string the developer intended, and still lie
+about money. Four of these existed.
+
+| Claim | Was | Now |
+|---|---|---|
+| "Ready." after top-up | printed after a fixed wait, regardless | only if the balance actually rose above its pre-transfer value |
+| "Your credit was not spent" | printed on every ask failure | balance re-read; says "went wrong after payment" when it did |
+| "Sent back to your wallet" | printed on a settlement hash | only after the balance reaches zero |
+| "Nothing to return" | printed when settlement returned no hash | that now throws, because the money is still there |
+
+The rule applied throughout: **if the UI says something about a user's money,
+something must have measured it.** Where the measurement is unavailable, the
+copy says so ("Still confirming", "Check your balance below") rather than
+guessing in the user's favour.

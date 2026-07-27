@@ -229,12 +229,28 @@ $("sweep").addEventListener("click", async () => {
   setStatus("topup-status", "Returning your credit…");
   try {
     const hash = await sweepBack(wallet);
-    if (hash) {
-      $("receipts").innerHTML = `<a href="${CFG.explorer}/tx/${hash}" target="_blank" rel="noopener">Refund receipt</a>`;
-      setStatus("topup-status", "Sent back to your wallet.");
-    } else {
+    if (!hash) {
       setStatus("topup-status", "Nothing to return.");
+      return;
     }
+
+    $("receipts").innerHTML = `<a href="${CFG.explorer}/tx/${hash}" target="_blank" rel="noopener">Refund receipt</a>`;
+
+    // A settlement hash means the facilitator accepted it, not that the funds
+    // have landed. Confirm the balance actually emptied before saying so.
+    let returned = false;
+    for (let i = 0; i < 20; i++) {
+      if ((await usdcBalance(loadSessionKey().address)) === 0n) {
+        returned = true;
+        break;
+      }
+      await new Promise((r) => setTimeout(r, 1500));
+    }
+    setStatus(
+      "topup-status",
+      returned ? "Sent back to your wallet." : "Refund submitted. Your receipt is below.",
+      !returned,
+    );
     await refreshBalance();
   } catch (e: any) {
     // Say why. "Try again" on a refund that will never work is cruel, and the
