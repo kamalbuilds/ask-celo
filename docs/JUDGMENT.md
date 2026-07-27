@@ -114,3 +114,45 @@ The rule applied throughout: **if the UI says something about a user's money,
 something must have measured it.** Where the measurement is unavailable, the
 copy says so ("Still confirming", "Check your balance below") rather than
 guessing in the user's favour.
+
+## What actually found the bugs
+
+Three questions did nearly all the work. None needed new information, only
+looking at what was already there.
+
+**"Which path has never actually run?"** Found the custody failure (users could
+not withdraw), the credit drain (strangers could spend our facilitator
+balance), the unattended go-live aborting before it could explain itself, the
+register step burning a single-use OAuth code on a fumble, and credit
+exhaustion stopping all sales silently. Every one passed the tests that existed,
+because tests confirm what you meant rather than what will happen.
+
+**"This value appears twice — do the copies agree?"** They rarely did. Two
+answers quoted 21k and 65k gas for the same transfer (both wrong; the measured
+figure is 85,794). The price was written out in seven places across three
+files. The tests hardcoded the addresses they were testing. And the entire
+service existed twice with an 80-line diff, which is why two fixes that day had
+to be applied twice. The refinement: do not just check they agree, delete one of
+them. Agreement you have to maintain is a bug waiting for the next edit.
+
+**"If I reintroduce the bug, does the test fail?"** Three of five suites said
+no. Each retyped the logic it was testing, so the FX bounds stayed green with
+the 250x inversion restored, and both attribution builders could drop the tag
+entirely without a single failure — while the tag is the whole mechanism by
+which this work gets credited. Mutation testing found in twenty minutes what a
+day of review had missed.
+
+The common thread is that all three defeat confirmation. Reading code shows you
+what it means; running the untested path, comparing the duplicate, and breaking
+the thing on purpose show you what it does.
+
+### The category tests cannot catch
+
+Four user-facing messages asserted things about money that nothing had measured:
+"Ready." after a top-up that had not arrived, "your credit was not spent" when
+it might have been, "sent back to your wallet" before the balance emptied, and
+"nothing to return" when a settlement had actually failed. The function returned
+successfully and printed exactly the intended string in every case. Nothing
+failed, so nothing could catch it. The rule now: if the UI says something about
+a user's money, something must have measured it, and where measurement is
+unavailable the copy says so rather than guessing in the user's favour.
