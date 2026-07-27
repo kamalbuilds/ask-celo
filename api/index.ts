@@ -7,7 +7,7 @@ import { HTTPFacilitatorClient } from "@x402/core/server";
 import { getAddress } from "viem";
 import { NETWORK, CFG } from "../src/config.js";
 import { answer } from "../src/inference.js";
-import { recordReceipt } from "../src/receipts.js";
+import { recordReceipt, receiptStats, receiptsEnabled } from "../src/receipts.js";
 import { settleRefund } from "../src/refund.js";
 
 export const config = { runtime: "nodejs" };
@@ -104,6 +104,8 @@ app.get("/api/health", (c) =>
     // terms in plain JSON so they are readable with curl alone.
     price: { amount: "10000", decimals: 6, display: "$0.01", asset: CFG.usdc, symbol: "USDC" },
     docs: "https://github.com/kamalbuilds/ask-celo/blob/master/docs/TRY-IT.md",
+    // Sales can keep working while attribution quietly stops. Surface it.
+    receipts: { enabled: receiptsEnabled, ...receiptStats },
   }),
 );
 

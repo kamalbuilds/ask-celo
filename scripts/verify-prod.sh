@@ -33,3 +33,17 @@ if n < 50:
     print('  ! LOW — top up at https://x402.celo.org or settlement starts failing')
     sys.exit(1)
 "
+
+echo "=== attribution receipts (Track 1 credit depends on these)"
+curl -s --max-time 20 https://ask-celo.vercel.app/api/health | python3 -c "
+import json,sys
+r = json.load(sys.stdin).get('receipts', {})
+if not r.get('enabled'):
+    print('  disabled — no contract/tag yet, so sales earn no Track 1 credit')
+else:
+    a, ok, bad = r.get('attempted',0), r.get('recorded',0), r.get('failed',0)
+    print(f'  {ok}/{a} recorded, {bad} failed')
+    if bad and bad >= ok:
+        print('  ! receipts are failing:', r.get('lastError','')[:90])
+        sys.exit(1)
+"

@@ -45,6 +45,13 @@ const wallet =
 export const receiptsEnabled = Boolean(wallet);
 
 /**
+ * Receipts are fire-and-forget, so a persistent failure is invisible: sales
+ * keep succeeding while the attribution that credits them silently stops.
+ * These counters make that observable through /api/health.
+ */
+export const receiptStats = { attempted: 0, recorded: 0, failed: 0, lastError: "" as string };
+
+/**
  * Fire-and-forget by design: the buyer already has their answer, and a receipt
  * failing must never turn a successful paid call into an error. Failures are
  * logged, not raised.
@@ -69,10 +76,16 @@ export function recordReceipt(user: string, micros: bigint, settlementTx: string
   // is registered on every network — Sepolia reverts with "Currency not in the
   // directory" — so fall back to native gas rather than dropping the receipt,
   // which would lose the attribution that makes the work countable.
+  receiptStats.attempted += 1;
   wallet
     .sendTransaction({ ...tx, feeCurrency: getAddress(CFG.usdcAdapter) } as never)
     .catch(() => wallet.sendTransaction(tx as never))
+    .then(() => {
+      receiptStats.recorded += 1;
+    })
     .catch((err: unknown) => {
-      console.error("receipt not recorded:", err instanceof Error ? err.message : err);
+      receiptStats.failed += 1;
+      receiptStats.lastError = err instanceof Error ? err.message.slice(0, 120) : String(err).slice(0, 120);
+      console.error("receipt not recorded:", receiptStats.lastError);
     });
 }
