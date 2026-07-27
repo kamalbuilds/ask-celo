@@ -159,6 +159,7 @@ $("ask-btn").addEventListener("click", async () => {
   btn.disabled = true;
   show("answer", false);
   setStatus("ask-status", "Thinking…");
+  const balanceBefore = await usdcBalance(loadSessionKey().address).catch(() => 0n);
   try {
     // The 402 handshake, signing and retry all happen inside payFetch. The
     // user is not prompted: the session key already holds the funds.
@@ -182,8 +183,24 @@ $("ask-btn").addEventListener("click", async () => {
     }
     await refreshBalance();
   } catch (e: any) {
-    setStatus("ask-status", "Could not get an answer. Your credit was not spent.", true);
+    // Do not promise the money is safe without checking. The middleware does
+    // cancel settlement when the handler fails, but this catch also fires on a
+    // dropped connection after payment, where the claim would be false.
+    // Re-read the balance and say only what is true.
     console.error(e);
+    try {
+      const spent = (await usdcBalance(loadSessionKey().address)) < balanceBefore;
+      setStatus(
+        "ask-status",
+        spent
+          ? "Something went wrong after payment. Your receipt is below."
+          : "Could not get an answer. Your credit was not spent.",
+        true,
+      );
+    } catch {
+      setStatus("ask-status", "Could not get an answer. Check your balance below.", true);
+    }
+    await refreshBalance().catch(() => {});
   } finally {
     btn.disabled = false;
   }
