@@ -80,8 +80,28 @@ for (const btn of document.querySelectorAll<HTMLButtonElement>(".choice")) {
 }
 
 $("topup-btn").addEventListener("click", async () => {
-  if (!wallet) return;
   const btn = $<HTMLButtonElement>("topup-btn");
+
+  // A tap must never do nothing. If the wallet never connected (a prompt was
+  // dismissed, or the page loaded before the provider), retry here rather than
+  // returning silently and leaving the user pressing a dead button.
+  if (!wallet) {
+    setStatus("topup-status", "Connecting…");
+    try {
+      wallet = await connect();
+    } catch {
+      wallet = null;
+    }
+    if (!wallet) {
+      setStatus(
+        "topup-status",
+        isMiniPay() ? "Reopen the app to continue." : "Connect a wallet to add credit.",
+        true,
+      );
+      return;
+    }
+  }
+
   btn.disabled = true;
   setStatus("topup-status", "Confirm in your wallet…");
   try {
