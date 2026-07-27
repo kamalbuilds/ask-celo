@@ -81,6 +81,21 @@ switch (cmd) {
 
   case "claim": {
     if (!arg) throw new Error("usage: register.mjs claim CELO-XXXX-0000");
+
+    // Check this BEFORE spending the claim code. A claim code is single-use, so
+    // failing after redeeming it would mean signing in through Google again for
+    // a value we could have demanded up front.
+    const telegram = process.env.TELEGRAM_HANDLE ?? state.telegram;
+    if (!telegram) {
+      throw new Error(
+        "TELEGRAM_HANDLE not set. Re-run as:\n" +
+          "  TELEGRAM_HANDLE=@yourhandle npm run register -- claim " + arg,
+      );
+    }
+    if (!/^@?[a-zA-Z0-9_]{5,32}$/.test(telegram)) {
+      throw new Error(`"${telegram}" is not a valid Telegram handle (5-32 chars, letters/digits/_)`);
+    }
+
     const out = await api("/auth/google/claim", { method: "POST", body: { claimCode: arg } });
     const connection = out.connection ?? out.token ?? out.accessToken;
     if (!connection) throw new Error(`no connection token in response: ${JSON.stringify(out).slice(0, 200)}`);
@@ -91,9 +106,6 @@ switch (cmd) {
 
     // Save the registration draft immediately. The response carries the
     // attribution tag, and that is the whole reason to register early.
-    const telegram = process.env.TELEGRAM_HANDLE ?? state.telegram;
-    if (!telegram) throw new Error("TELEGRAM_HANDLE not set — required to register");
-
     const saved = await api("/submissions/me", {
       method: "PUT",
       token: connection,
