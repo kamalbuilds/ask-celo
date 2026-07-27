@@ -17,7 +17,8 @@
     "verify:thesis": "node scripts/verify-signature.mjs",
     "x402:key": "node scripts/x402-key.mjs",
     "register": "node scripts/register.mjs",
-    "go-live": "./scripts/go-live.sh"
+    "go-live": "./scripts/go-live.sh",
+    "verify": "./scripts/verify-prod.sh"
   },
   "dependencies": {
     "@celo/attribution-tags": "^0.2.0",
