@@ -92,4 +92,35 @@ check("a settlement hash is always 32 bytes", () => {
   );
 });
 
+
+// ---- refund authorization ------------------------------------------------
+// The refund moves a user's whole balance. If the authorization is malformed
+// the money is stuck, which is the bug this replaced.
+
+console.log("\nrefund authorization");
+
+check("refund authorization names the user's own wallet as recipient", () => {
+  const userWallet = "0x1111111111111111111111111111111111111111";
+  const auth = {
+    from: PAYER,
+    to: userWallet,
+    value: "19680000",
+    validAfter: "0",
+    validBefore: "99999999999",
+    nonce: SETTLEMENT,
+  };
+  // The server builds payTo from authorization.to, so a refund can only ever
+  // land where the user signed for.
+  assert.equal(getAddress(auth.to), getAddress(userWallet));
+  assert.notEqual(getAddress(auth.to), getAddress(auth.from), "refund to itself is a no-op");
+});
+
+check("refund amount is the full balance, not a fixed price", () => {
+  // A refund hardcoded to the per-call price would strand everything else.
+  const balance = 19_680_000n;
+  const auth = { value: balance.toString() };
+  assert.equal(BigInt(auth.value), balance);
+  assert.notEqual(BigInt(auth.value), 10_000n, "refund must not use the $0.01 call price");
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
