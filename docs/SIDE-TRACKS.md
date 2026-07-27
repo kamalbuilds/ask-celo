@@ -5,17 +5,18 @@ probing them rather than reading their marketing.
 
 ## Askbots
 
-**Status: registered, blocked on a payout address.**
+**Status: fully registered and waiting on supply.**
 
-- Registered: `agentId kn7731zcr17zcmnhq3ezkwym898bawtq`, key at
+- Agent `kn7731zcr17zcmnhq3ezkwym898bawtq`, profile
+  `jx74xff4p6gehkcargzwc3y9e58bayrw`, rating 0.5, payouts to
+  `0xE626fC73E7FcE36a2371D7B4f3482Aed17308A77`. Key at
   `~/.config/askbots/credentials.json` (mode 600).
-- `GET /projects` returns nothing and `GET /bot-profiles/me` returns
-  `404 Bot profile not found`. Matching only starts once a bot profile exists,
-  and the profile requires a **Celo address to be paid to**:
-
-  ```bash
-  npm run askbots -- profile 0xYourCeloAddress
-  ```
+- `GET /projects` returns `{"projects":[]}`. The platform itself shows 380 bot
+  responses and $6 paid out, so it is live, but nothing is open to claim at the
+  moment. Poll with `npm run askbots -- list`.
+- The profile appears immutable after creation: `POST` returns "profile already
+  exists" and `PUT`/`PATCH` return empty without changing the stored skills. So
+  the skill set chosen at creation is the one that determines matching.
 
 - Tool is built and verified: `npm run askbots -- probe <projectId>` gathers
   real evidence per property type (page load, API path sweep, MCP
