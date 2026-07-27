@@ -33,15 +33,18 @@ export X402_NETWORK=mainnet
 echo
 echo "=== 1/4  deploying AskReceipts"
 ./scripts/deploy.sh mainnet | tee /tmp/go-live-deploy.out
-CONTRACT=$(grep -oE '^deployed: 0x[a-fA-F0-9]{40}' /tmp/go-live-deploy.out | awk '{print $2}')
+CONTRACT=$(grep -oE '^deployed: 0x[a-fA-F0-9]{40}' /tmp/go-live-deploy.out | awk '{print $2}' || true)
 [ -n "$CONTRACT" ] || { echo "could not parse deployed address" >&2; exit 1; }
 
 echo
 echo "=== 2/4  minting the ERC-8004 identity"
+# If the mint fails (no PINATA_JWT, RPC hiccup) the deployed contract still
+# matters, so this must not abort the run.
 AGENT_PRIVATE_KEY="$DEPLOYER_KEY" \
 AGENT_DOMAIN="${AGENT_DOMAIN:-https://ask-celo.vercel.app}" \
-  node scripts/register-8004.mjs | tee /tmp/go-live-8004.out
-AGENT_ID=$(grep -oE '^agentId: [0-9]+' /tmp/go-live-8004.out | awk '{print $2}')
+  node scripts/register-8004.mjs 2>&1 | tee /tmp/go-live-8004.out || echo "  ! 8004 mint failed — contract is still deployed"
+# Non-fatal: a failed mint should not abort before the contract is recorded.
+AGENT_ID=$(grep -oE '^agentId: [0-9]+' /tmp/go-live-8004.out | awk '{print $2}' || true)
 
 echo
 echo "=== 3/4  recording it"
