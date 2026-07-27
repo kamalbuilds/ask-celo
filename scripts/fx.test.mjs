@@ -112,7 +112,39 @@ await check("distinct currencies do not resolve to the same rate", () => {
   }
 });
 
+
+// ---- every numeric answer, not just rates -------------------------------
+// The remittance fee shipped 250x too high because the oracle quotes cUSD per
+// CELO and the code inverted it. The FX invariants above did not catch it,
+// because it was a new code path. Any number the product states about money
+// needs a sanity bound.
+
+await check("a stablecoin transfer costs a fraction of a cent", async () => {
+  const gasPrice = await client.getGasPrice();
+  const celoUsd = rates.cUSD; // cUSD per CELO, from the same oracle
+  const feeUsd = ((Number(gasPrice) * 65_000) / 1e18) * celoUsd;
+
+  // Celo's whole pitch is sub-cent fees. If this ever reads above a cent the
+  // number is wrong, or the chain has changed enough that the copy is a lie.
+  assert.ok(feeUsd > 0, `fee is ${feeUsd}, must be positive`);
+  assert.ok(feeUsd < 0.01, `transfer fee reads $${feeUsd.toFixed(4)} — above a cent, likely inverted`);
+});
+
+await check("the fee is negligible against a real remittance", async () => {
+  const gasPrice = await client.getGasPrice();
+  const feeUsd = ((Number(gasPrice) * 65_000) / 1e18) * rates.cUSD;
+  const pct = (feeUsd / 200) * 100;
+  // The World Bank average is 6.2%. Ours should be orders below, not near it.
+  assert.ok(pct < 0.1, `fee is ${pct.toFixed(4)}% of $200 — too close to traditional rails to be right`);
+});
+
+await check("CELO is worth more than a cent and less than a thousand dollars", () => {
+  // rates.cUSD is cUSD per CELO. A wrong direction shows up immediately here.
+  assert.ok(rates.cUSD > 0.01 && rates.cUSD < 1000, `CELO reads $${rates.cUSD} — direction likely inverted`);
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
+
 for (const [a, b] of [["cUSD", "cKES"], ["cUSD", "cCOP"], ["cUSD", "cREAL"], ["cEUR", "cKES"]]) {
   console.log(`  1 ${a.slice(1)} = ${(rates[b] / rates[a]).toFixed(4)} ${b.slice(1)}`);
 }
