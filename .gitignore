@@ -9,3 +9,4 @@ cache/
 lib/
 .x402-wallet.json
 .env.local
+.session-test.json

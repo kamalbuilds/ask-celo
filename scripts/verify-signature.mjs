@@ -20,6 +20,7 @@
  *
  *   node scripts/verify-signature.mjs
  */
+import { existsSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
 import { privateKeyToAccount, generatePrivateKey } from "viem/accounts";
 import { getAddress } from "viem";
 
@@ -37,14 +38,29 @@ const CFG = {
   },
 }[NETWORK];
 
-// A session key exactly as the Mini App generates one: created in the browser,
-// never funded by anything but a MiniPay transfer, holding no special status.
-const sessionKey = process.env.SESSION_TEST_KEY ?? generatePrivateKey();
+// A session key exactly as the Mini App generates one: created locally, never
+// funded by anything but a transfer, holding no special status.
+//
+// It is persisted. An earlier version generated a throwaway key inline, which
+// was fine for a signature check but meant that funding the printed address
+// stranded the money: the key was gone the moment the process exited.
+const KEY_FILE = ".session-test.json";
+let sessionKey = process.env.SESSION_TEST_KEY;
+if (!sessionKey && existsSync(KEY_FILE)) {
+  sessionKey = JSON.parse(readFileSync(KEY_FILE, "utf8")).privateKey;
+}
+const generated = !sessionKey;
+if (generated) sessionKey = generatePrivateKey();
+
 const account = privateKeyToAccount(sessionKey);
+if (generated) {
+  writeFileSync(KEY_FILE, JSON.stringify({ address: account.address, privateKey: sessionKey }, null, 2));
+  chmodSync(KEY_FILE, 0o600);
+}
 const payTo = getAddress(process.env.SELLER_PAY_TO ?? "0x000000000000000000000000000000000000dEaD");
 
 console.log(`network:     ${NETWORK} (${CFG.caip})`);
-console.log(`session key: ${account.address}`);
+console.log(`session key: ${account.address}${generated ? ` (new, saved to ${KEY_FILE})` : ""}`);
 console.log(`payTo:       ${payTo}\n`);
 
 const now = Math.floor(Date.now() / 1000);
