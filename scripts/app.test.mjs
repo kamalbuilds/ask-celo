@@ -105,5 +105,36 @@ await check("every browser-facing env var has a VITE_ twin in go-live", async ()
   }
 });
 
+
+await check("an unreadable balance never lets anyone spend", async () => {
+  // The bug: refreshBalance threw before disabling anything, so Ask stayed
+  // clickable over a placeholder balance and the user paid for a request that
+  // could not complete. On 2G this is a normal condition, not an edge case.
+  const { unknownBalance } = await import("../src/balance.ts");
+  assert.equal(unknownBalance.canAsk, false, "Ask enabled with an unknown balance");
+  assert.equal(unknownBalance.canSweep, false, "sweep offered with an unknown balance");
+  assert.match(unknownBalance.message, /connection/i, "the message does not explain why");
+});
+
+await check("the balance view gates spending on affordability", async () => {
+  const { balanceView } = await import("../src/balance.ts");
+  const { PRICE } = await import("../src/config.ts");
+
+  const empty = balanceView(0);
+  assert.equal(empty.canAsk, false, "can ask with nothing");
+  assert.equal(empty.canSweep, false, "can sweep nothing");
+  assert.equal(empty.showStorageWarning, false, "warns about losing an empty balance");
+
+  // Exactly one question's worth must be enough, and a fraction must not be.
+  assert.equal(balanceView(PRICE.usd).canAsk, true, "exactly one question is not affordable");
+  assert.equal(balanceView(PRICE.usd / 2).canAsk, false, "half a question is affordable");
+
+  const funded = balanceView(5);
+  assert.equal(funded.canAsk, true);
+  assert.equal(funded.balance, "$5.00");
+  assert.match(funded.message, /500 questions left/);
+  assert.equal(funded.showStorageWarning, true, "no warning while holding real money");
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();

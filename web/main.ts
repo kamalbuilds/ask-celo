@@ -3,6 +3,7 @@ import { ExactEvmScheme } from "@x402/evm/exact/client";
 import { privateKeyToAccount } from "viem/accounts";
 import type { Address } from "viem";
 import { CFG, PRICE } from "../src/config.js";
+import { balanceView, unknownBalance } from "../src/balance.js";
 import { loadSessionKey, usdcBalance, toUsd, isMiniPay, connect, topUp, sweepBack } from "../src/session.js";
 
 const PRICE_USD = PRICE.usd;
@@ -27,30 +28,21 @@ function setStatus(id: string, msg: string, isError = false) {
 }
 
 async function refreshBalance() {
-  // MiniPay users are on 2G/3G, so an unreachable RPC is a normal condition,
-  // not an edge case. This threw before, leaving the balance on a placeholder
-  // while Ask stayed enabled — the user pays for a request that cannot work.
-  let usd: number;
+  // The view is decided in balance.ts so it can be tested; this only applies it.
+  let usd = 0;
+  let view;
   try {
     usd = toUsd(await usdcBalance(session.address));
+    view = balanceView(usd);
   } catch {
-    $("balance").textContent = "—";
-    $("questions-left").textContent = "Cannot reach the network. Check your connection.";
-    $<HTMLButtonElement>("ask-btn").disabled = true;
-    show("sweep", false);
-    show("storage-note", false);
-    return 0;
+    view = unknownBalance;
   }
 
-  $("balance").textContent = `$${usd.toFixed(2)}`;
-  const left = Math.floor(usd / PRICE_USD);
-  $("questions-left").textContent =
-    left > 0 ? `${left} question${left === 1 ? "" : "s"} left` : "Add credit to ask a question";
-  $<HTMLButtonElement>("ask-btn").disabled = left < 1;
-  show("sweep", usd > 0);
-  // Only warn when there is something to lose. A standing warning on an empty
-  // balance is noise; this appears precisely when clearing data would cost money.
-  show("storage-note", usd > 0);
+  $("balance").textContent = view.balance;
+  $("questions-left").textContent = view.message;
+  $<HTMLButtonElement>("ask-btn").disabled = !view.canAsk;
+  show("sweep", view.canSweep);
+  show("storage-note", view.showStorageWarning);
   return usd;
 }
 
