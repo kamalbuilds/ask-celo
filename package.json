@@ -8,7 +8,7 @@
     "ready": "node scripts/readiness.mjs",
     "seller": "tsx src/seller.ts",
     "typecheck": "tsc --noEmit",
-    "test": "node scripts/tag.test.mjs && node scripts/receipt.test.mjs && tsx scripts/fx.test.mjs && tsx scripts/app.test.mjs && forge test",
+    "test": "tsx scripts/tag.test.mjs && tsx scripts/receipt.test.mjs && tsx scripts/fx.test.mjs && tsx scripts/app.test.mjs && forge test",
     "dev": "vite",
     "build": "vite build",
     "register:8004": "node scripts/register-8004.mjs",
@@ -19,7 +19,8 @@
     "register": "node scripts/register.mjs",
     "go-live": "./scripts/go-live.sh",
     "verify": "./scripts/verify-prod.sh",
-    "fresh": "./scripts/fresh-clone.sh"
+    "fresh": "./scripts/fresh-clone.sh",
+    "check": "npm run typecheck && npm run build && npm test && npm run verify"
   },
   "dependencies": {
     "@celo/attribution-tags": "^0.2.0",
