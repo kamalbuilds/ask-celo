@@ -8,7 +8,9 @@
     "ready": "node scripts/readiness.mjs",
     "seller": "tsx src/seller.ts",
     "typecheck": "tsc --noEmit",
-    "test": "node scripts/tag.test.mjs"
+    "test": "node scripts/tag.test.mjs",
+    "dev": "vite",
+    "build": "vite build"
   },
   "dependencies": {
     "@celo/attribution-tags": "^0.2.0",
@@ -23,6 +25,7 @@
   "devDependencies": {
     "@types/node": "^26.1.2",
     "tsx": "^4.23.1",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "vite": "^8.1.5"
   }
 }

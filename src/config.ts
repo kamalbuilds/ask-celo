@@ -1,6 +1,17 @@
 import { celo, celoSepolia } from "viem/chains";
 
-export const NETWORK = process.env.X402_NETWORK === "mainnet" ? "mainnet" : "testnet";
+/**
+ * Shared by the seller (Node) and the Mini App (browser), so it must not touch
+ * `process` directly: `process` is undefined in a browser and referencing it
+ * throws at module load, which silently blanks the whole page.
+ */
+const env = (key: string): string | undefined => {
+  const viteEnv = (import.meta as any).env;
+  if (viteEnv) return viteEnv[`VITE_${key}`];
+  return typeof process === "undefined" ? undefined : process.env[key];
+};
+
+export const NETWORK = env("X402_NETWORK") === "mainnet" ? "mainnet" : "testnet";
 
 // Verified against https://x402.celo.org/api/config and the Celo docs.
 // USDC/USDT only: the facilitator settles via EIP-3009 transferWithAuthorization,
@@ -10,7 +21,7 @@ export const CFG = {
   mainnet: {
     caip: "eip155:42220" as const,
     chain: celo,
-    rpc: process.env.CELO_RPC ?? "https://forno.celo.org",
+    rpc: env("CELO_RPC") ?? "https://forno.celo.org",
     facilitator: "https://api.x402.celo.org",
     usdc: "0xcebA9300f2b948710d2653dD7B07f33A8B32118C",
     usdcAdapter: "0x2F25deB3848C207fc8E0c34035B3Ba7fC157602B", // feeCurrency, NOT the token
@@ -19,7 +30,7 @@ export const CFG = {
   testnet: {
     caip: "eip155:11142220" as const,
     chain: celoSepolia,
-    rpc: process.env.CELO_RPC ?? "https://forno.celo-sepolia.celo-testnet.org",
+    rpc: env("CELO_RPC") ?? "https://forno.celo-sepolia.celo-testnet.org",
     facilitator: "https://api.x402.sepolia.celo.org",
     usdc: "0x01C5C0122039549AD1493B8220cABEdD739BC44E",
     usdcAdapter: "0x4822e58de6f5e485eF90df51C41CE01721331dC0",

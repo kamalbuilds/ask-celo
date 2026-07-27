@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Ask — pay by the question</title>
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+  <body>
+    <main id="app">
+      <header>
+        <h1>Ask</h1>
+        <p class="sub">A cent a question. No subscription, no sign-up.</p>
+      </header>
+
+      <section id="balance-card" class="card" hidden>
+        <div class="row">
+          <span class="label">Your balance</span>
+          <span id="balance" class="amount">—</span>
+        </div>
+        <p id="questions-left" class="hint"></p>
+      </section>
+
+      <section id="topup" class="card" hidden>
+        <h2>Add credit</h2>
+        <p class="hint">One approval. After that, questions just work.</p>
+        <div class="choices" role="group" aria-label="Amount to add">
+          <button class="choice" data-amount="0.25">25c</button>
+          <button class="choice is-selected" data-amount="1">$1</button>
+          <button class="choice" data-amount="5">$5</button>
+        </div>
+        <button id="topup-btn" class="primary">Add credit</button>
+        <p id="topup-status" class="status" role="status"></p>
+      </section>
+
+      <section id="ask" class="card" hidden>
+        <label class="label" for="q">Your question</label>
+        <textarea id="q" rows="3" placeholder="Ask anything" enterkeyhint="send"></textarea>
+        <button id="ask-btn" class="primary">Ask · 1c</button>
+        <p id="ask-status" class="status" role="status"></p>
+        <div id="answer" class="answer" hidden></div>
+      </section>
+
+      <section id="no-wallet" class="card" hidden>
+        <h2>Open this in MiniPay</h2>
+        <p class="hint">
+          This app pays by the question using stablecoins, so it needs a wallet.
+          Open it from MiniPay to get started.
+        </p>
+      </section>
+
+      <footer>
+        <button id="sweep" class="ghost" hidden>Return unused credit</button>
+        <p id="receipts" class="receipts"></p>
+      </footer>
+    </main>
+    <script type="module" src="/main.ts"></script>
+  </body>
+</html>
