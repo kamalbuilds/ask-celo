@@ -1,0 +1,95 @@
+#!/usr/bin/env node
+/**
+ * receipt.test.mjs — the receipt is what makes a sale countable.
+ *
+ * The x402 settlement cannot carry our attribution tag (the facilitator sends
+ * that transaction, not us), so this receipt is the only transaction we control
+ * per sale. If its calldata is wrong the money still moves, the buyer is still
+ * happy, and the work is credited to nobody. That failure is invisible at
+ * runtime, so it gets asserted here.
+ *
+ *   node scripts/receipt.test.mjs
+ */
+import { encodeFunctionData, decodeFunctionData, concat, getAddress } from "viem";
+import { toDataSuffix, fromDataSuffix } from "@celo/attribution-tags";
+import assert from "node:assert/strict";
+
+const ABI = [
+  {
+    type: "function",
+    name: "record",
+    stateMutability: "nonpayable",
+    inputs: [
+      { name: "user", type: "address" },
+      { name: "micros", type: "uint128" },
+      { name: "settlement", type: "bytes32" },
+    ],
+    outputs: [],
+  },
+];
+
+const PAYER = getAddress("0x2cE408B57f753D54351e4d72C1dC857311eF9749");
+const SETTLEMENT = "0xe8e82e430a40d1b49666960260fe3652c6378a8ee2fa405eaf9eb661d3a643b3";
+const TAG = "celo_b7k3p9da1234";
+
+let n = 0;
+const check = (name, fn) => {
+  n++;
+  try {
+    fn();
+    console.log(`  ok   ${name}`);
+  } catch (e) {
+    console.log(`  FAIL ${name}: ${e.message}`);
+    process.exitCode = 1;
+  }
+};
+
+const build = (tag) => {
+  const data = encodeFunctionData({
+    abi: ABI,
+    functionName: "record",
+    args: [PAYER, 10_000n, SETTLEMENT],
+  });
+  return tag ? concat([data, toDataSuffix(tag)]) : data;
+};
+
+console.log("receipt calldata");
+
+check("decodes back to the exact sale it represents", () => {
+  const { functionName, args } = decodeFunctionData({ abi: ABI, data: build(TAG) });
+  assert.equal(functionName, "record");
+  assert.equal(getAddress(args[0]), PAYER, "payer must be the wallet that actually paid");
+  assert.equal(args[1], 10_000n, "$0.01 in USDC micros");
+  assert.equal(args[2].toLowerCase(), SETTLEMENT.toLowerCase(), "must point at the real settlement");
+});
+
+check("carries the attribution tag that credits the work", () => {
+  const decoded = fromDataSuffix(build(TAG));
+  assert.ok(decoded, "no ERC-8021 suffix — this sale would be credited to nobody");
+  assert.ok(decoded.codes.includes(TAG), `tag missing, found ${JSON.stringify(decoded.codes)}`);
+});
+
+check("the tag does not corrupt the call it rides on", () => {
+  const tagged = build(TAG);
+  const plain = build(null);
+  assert.ok(tagged.startsWith(plain), "suffix altered the call — record() would misbehave");
+  const { args } = decodeFunctionData({ abi: ABI, data: tagged });
+  assert.equal(args[1], 10_000n, "amount changed once tagged");
+});
+
+check("works untagged too, so a missing tag never blocks the receipt", () => {
+  const { functionName } = decodeFunctionData({ abi: ABI, data: build(null) });
+  assert.equal(functionName, "record");
+  assert.equal(fromDataSuffix(build(null)), null);
+});
+
+check("a settlement hash is always 32 bytes", () => {
+  // bytes32 silently truncates a longer value and throws on a shorter one, so
+  // a malformed hash from the facilitator must not become a wrong receipt.
+  assert.throws(
+    () => encodeFunctionData({ abi: ABI, functionName: "record", args: [PAYER, 1n, "0xdeadbeef"] }),
+    "short hash should be rejected rather than padded into a different receipt",
+  );
+});
+
+console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
