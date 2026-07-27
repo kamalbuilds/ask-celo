@@ -107,20 +107,27 @@ if (real(state.payTo)) {
 }
 
 // ---- Named blockers, with the work parked behind each ----
+// Read from the environment too, so a blocker that has actually been cleared
+// stops being reported. A checklist that cries wolf gets ignored.
+const envFile = existsSync("./.env.local") ? readFileSync("./.env.local", "utf8") : "";
+const hasApiKey = /X402_API_KEY=x402_\w+/.test(envFile) || real(process.env.X402_API_KEY);
+
 const blockers = [
   [
-    !real(state.attributionTag),
+    !real(state.attributionTag) && !real(process.env.ATTRIBUTION_TAG),
     "attribution tag — needs GitHub repo name + Telegram handle to register on celobuilders",
-    "blocks: Track 1 credit on every tx (retroactively unrecoverable)",
+    "blocks: Track 1 credit on every tx (retroactively unrecoverable, so this decays)",
   ],
   [
-    !real(state.x402ApiKey),
-    "x402 API key — human must connect a wallet at x402.celo.org and Create API key",
-    "blocks: all mainnet settlement (G3/G5)",
+    !hasApiKey,
+    "x402 API key — run `npm run x402:key` (signs a message with a throwaway wallet)",
+    "blocks: all settlement (G3/G5)",
   ],
 ];
 const open = blockers.filter(([b]) => b);
 if (open.length) {
   console.log("\nBlockers:");
   for (const [, what, blocks] of open) console.log(`  - ${what}\n    ${blocks}`);
+} else {
+  console.log("\nNo blockers.");
 }
