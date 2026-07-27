@@ -65,18 +65,28 @@ export async function connect(): Promise<Address | null> {
  * MiniPay ignores them. Gas is paid in USDC via the adapter, so the user never
  * needs CELO and never sees it.
  */
-export async function topUp(from: Address, amountUsd: number, tag?: string): Promise<Hex> {
-  const session = loadSessionKey();
+/**
+ * Build the top-up calldata, tag included.
+ *
+ * Exported so a test can exercise the shipped builder. This is the user's only
+ * on-chain transaction, so it is the one that carries attribution — an
+ * untagged top-up is real volume credited to nobody.
+ */
+export function buildTopUpData(to: Address, amountUsd: number, tag?: string): Hex {
   const transfer = encodeFunctionData({
     abi: erc20Abi,
     functionName: "transfer",
-    args: [session.address, parseUnits(String(amountUsd), 6)],
+    args: [to, parseUnits(String(amountUsd), 6)],
   });
-
   // ERC-8021: trailing bytes the EVM discards, so execution is unchanged.
   // Only the assigned tag is credited, so it must be present, but our own
   // code can ride alongside it.
-  const data = tag ? concat([transfer, toDataSuffix([tag])]) : transfer;
+  return tag ? concat([transfer, toDataSuffix([tag])]) : transfer;
+}
+
+export async function topUp(from: Address, amountUsd: number, tag?: string): Promise<Hex> {
+  const session = loadSessionKey();
+  const data = buildTopUpData(session.address, amountUsd, tag);
 
   return (window as any).ethereum.request({
     method: "eth_sendTransaction",

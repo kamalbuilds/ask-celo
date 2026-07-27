@@ -14,6 +14,7 @@ import { encodeFunctionData, decodeFunctionData, concat, getAddress } from "viem
 import { toDataSuffix, fromDataSuffix } from "@celo/attribution-tags";
 import assert from "node:assert/strict";
 import * as productReceipts from "../src/receipts.ts";
+import * as productSession from "../src/session.ts";
 
 const ABI = [
   {
@@ -174,6 +175,20 @@ check("the receipt the PRODUCT builds carries the tag", () => {
   const { functionName, args } = decodeFunctionData({ abi: ABI, data: tagged });
   assert.equal(functionName, "record");
   assert.equal(args[1], 10_000n);
+});
+
+check("the top-up the PRODUCT builds carries the tag", () => {
+  // The user's only on-chain transaction, so the only one that can carry
+  // attribution. An untagged top-up is real volume credited to nobody.
+  const { buildTopUpData } = productSession;
+  const tagged = buildTopUpData(PAYER, 1, "celo_b7k3p9da1234");
+  const decoded = fromDataSuffix(tagged);
+  assert.ok(decoded, "session.ts produced a top-up with no ERC-8021 suffix");
+  assert.ok(decoded.codes.includes("celo_b7k3p9da1234"), "assigned tag missing from the top-up");
+
+  // Untagged must still be a valid transfer, so a missing tag never blocks a user.
+  const plain = buildTopUpData(PAYER, 1, undefined);
+  assert.ok(tagged.startsWith(plain), "the suffix altered the transfer it rides on");
 });
 
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
