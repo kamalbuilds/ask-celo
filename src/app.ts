@@ -18,8 +18,27 @@ import { settleRefund } from "./refund.js";
  * has produced most of this project's bugs — the copies drift, and the one
  * nobody is looking at is the one that ships.
  */
+/**
+ * Fail at boot, not at the first sale.
+ *
+ * Without SELLER_PAY_TO the app died deep inside viem with an InvalidAddress
+ * stack trace naming neither the variable nor the fix. Without X402_API_KEY it
+ * booted fine, served a healthy /api/health, and then failed every settlement:
+ * a service that looks up and cannot take money.
+ */
+function required(key: string): string {
+  const value = process.env[key];
+  if (!value) {
+    throw new Error(
+      `${key} is not set. The service cannot take payments without it — see .env.example.`,
+    );
+  }
+  return value;
+}
+
 export function createApp() {
-  const PAY_TO = getAddress(process.env.SELLER_PAY_TO!);
+  const PAY_TO = getAddress(required("SELLER_PAY_TO"));
+  required("X402_API_KEY");
 
   const facilitator = new HTTPFacilitatorClient({
     url: CFG.facilitator,
