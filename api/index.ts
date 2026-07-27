@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
-import { handle } from "hono/vercel";
+import { getRequestListener } from "@hono/node-server";
 import { paymentMiddleware, x402ResourceServer } from "@x402/hono";
 import { ExactEvmScheme } from "@x402/evm/exact/server";
 import { HTTPFacilitatorClient } from "@x402/core/server";
@@ -65,4 +65,12 @@ app.post("/api/ask", async (c) => {
   return c.json({ answer: await answer(q) });
 });
 
-export default handle(app);
+/**
+ * hono/vercel's handle() assumes a Web Request, but Vercel's Node runtime
+ * delivers a Node IncomingMessage. The app itself worked; the x402 middleware
+ * blew up reading headers off an object that has none — "this.raw.headers.get
+ * is not a function", visible only in the runtime logs, surfacing as a hang.
+ *
+ * getRequestListener does the Node -> Web conversion properly.
+ */
+export default getRequestListener(app.fetch);
