@@ -27,8 +27,21 @@ function setStatus(id: string, msg: string, isError = false) {
 }
 
 async function refreshBalance() {
-  const balance = await usdcBalance(session.address);
-  const usd = toUsd(balance);
+  // MiniPay users are on 2G/3G, so an unreachable RPC is a normal condition,
+  // not an edge case. This threw before, leaving the balance on a placeholder
+  // while Ask stayed enabled — the user pays for a request that cannot work.
+  let usd: number;
+  try {
+    usd = toUsd(await usdcBalance(session.address));
+  } catch {
+    $("balance").textContent = "—";
+    $("questions-left").textContent = "Cannot reach the network. Check your connection.";
+    $<HTMLButtonElement>("ask-btn").disabled = true;
+    show("sweep", false);
+    show("storage-note", false);
+    return 0;
+  }
+
   $("balance").textContent = `$${usd.toFixed(2)}`;
   const left = Math.floor(usd / PRICE_USD);
   $("questions-left").textContent =
