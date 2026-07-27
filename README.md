@@ -3,14 +3,19 @@
 Pay a cent a question. No subscription, no account, no card.
 
 ```
-"dollar to shillings"  ->  1 USD = 136 KES, from Mento's on-chain oracle.
-                           This is the rate the chain settles at, so a swap
-                           executes near it rather than at a counter's spread.
+"dollar to shillings"     ->  1 USD = 139 KES, from Mento's on-chain oracle.
+                              The rate the chain settles at, so a swap executes
+                              near it rather than at a counter's posted spread.
+
+"cost to send money home"  ->  Sending $200 in stablecoins on Celo costs about
+                              $0.001 in network fees. The World Bank puts the
+                              global average for a $200 remittance at 6.2%.
 ```
 
-Answers come from live Celo chain data: exchange rates between local
-currencies, what a transfer actually costs, how much of a stablecoin exists,
-how fast blocks settle. Each one is read at the moment you ask.
+Two questions with real stakes for the people MiniPay serves: what is my money
+worth, and what will it cost to send it. Also exchange rates across five local
+currencies, live stablecoin supply, and block finality. Each answer is read
+from the chain at the moment you ask, so none of it can be stale.
 
 Payment is x402 stablecoin micropayments, settled on-chain in about a second.
 

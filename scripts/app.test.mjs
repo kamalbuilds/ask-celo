@@ -12,7 +12,7 @@ import assert from "node:assert/strict";
 import { serve } from "@hono/node-server";
 
 process.env.SELLER_PAY_TO ??= "0x000000000000000000000000000000000000dEaD";
-process.env.X402_API_KEY ??= "test-key-not-used-for-these-checks";
+process.env.X402_API_KEY ??= "x402_test_key_not_used_for_these_checks";
 
 const { createApp } = await import("../src/app.ts");
 const { PRICE, CFG } = await import("../src/config.ts");
@@ -134,6 +134,34 @@ await check("the balance view gates spending on affordability", async () => {
   assert.equal(funded.balance, "$5.00");
   assert.match(funded.message, /500 questions left/);
   assert.equal(funded.showStorageWarning, true, "no warning while holding real money");
+});
+
+
+await check("the docs describe the product that actually ships", async () => {
+  // SUBMISSION.md spent hours describing a product two pivots old: every
+  // command in it was valid and every fact was true, and the overall
+  // description was still wrong. Nothing fails when docs rot, so this asserts
+  // the headline capabilities are named where a judge would read them.
+  const { readFileSync } = await import("node:fs");
+  const { answer } = await import("../src/inference.ts");
+
+  // What the product leads with, taken from the product itself.
+  const fx = await answer("what is USD to KES");
+  const remittance = await answer("what does it cost to send money home");
+  assert.match(fx, /1 USD = [\d.]+ KES/, "the FX answer changed shape");
+  assert.match(remittance, /Sending \$\d+ in stablecoins on Celo costs/, "the remittance answer changed shape");
+
+  for (const file of ["../README.md", "../docs/SUBMISSION.md"]) {
+    const text = readFileSync(new URL(file, import.meta.url), "utf8").toLowerCase();
+    assert.ok(
+      /exchange rate|what is my money worth|shillings/.test(text),
+      `${file} does not mention the FX answer the product leads with`,
+    );
+    assert.ok(
+      /remittance|cost to send|sending money/.test(text),
+      `${file} does not mention what sending money costs`,
+    );
+  }
 });
 
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
