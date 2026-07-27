@@ -11,3 +11,4 @@ lib/
 .env.local
 .session-test.json
 .vercel
+.celobuilders.json
