@@ -16,7 +16,7 @@ import assert from "node:assert/strict";
 // Import the addresses and gas figure the PRODUCT uses. Duplicating them here
 // meant the test could keep passing against constants the product no longer
 // used — validating the wrong thing while reporting success.
-import { MENTO_MAINNET as MENTO, SORTED_ORACLES, TRANSFER_GAS } from "../src/inference.ts";
+import { MENTO_MAINNET as MENTO, SORTED_ORACLES, TRANSFER_GAS, answer } from "../src/inference.ts";
 
 
 const ABI = [
@@ -116,23 +116,35 @@ await check("distinct currencies do not resolve to the same rate", () => {
 // because it was a new code path. Any number the product states about money
 // needs a sanity bound.
 
-await check("a stablecoin transfer costs a fraction of a cent", async () => {
-  const gasPrice = await client.getGasPrice();
-  const celoUsd = rates.cUSD; // cUSD per CELO, from the same oracle
-  const feeUsd = ((Number(gasPrice) * TRANSFER_GAS) / 1e18) * celoUsd;
-
-  // Celo's whole pitch is sub-cent fees. If this ever reads above a cent the
-  // number is wrong, or the chain has changed enough that the copy is a lie.
-  assert.ok(feeUsd > 0, `fee is ${feeUsd}, must be positive`);
-  assert.ok(feeUsd < 0.01, `transfer fee reads $${feeUsd.toFixed(4)} — above a cent, likely inverted`);
+await check("the fee the PRODUCT states is under a cent", async () => {
+  // Assert the answer the product actually returns, not a formula retyped
+  // here. The earlier version recomputed the maths itself, so reintroducing
+  // the 250x inversion in inference.ts left this passing — a test that
+  // validated its own arithmetic rather than the shipped behaviour.
+  const text = await answer("what does it cost to send money home");
+  const stated = Number(text.match(/costs about \$([\d.]+)/)?.[1]);
+  assert.ok(Number.isFinite(stated), `no fee found in: ${text.slice(0, 120)}`);
+  assert.ok(stated > 0, `fee reads $${stated}`);
+  assert.ok(stated < 0.01, `product states $${stated} — above a cent, likely inverted`);
 });
 
-await check("the fee is negligible against a real remittance", async () => {
-  const gasPrice = await client.getGasPrice();
-  const feeUsd = ((Number(gasPrice) * TRANSFER_GAS) / 1e18) * rates.cUSD;
-  const pct = (feeUsd / 200) * 100;
+await check("the fee the PRODUCT states is negligible against a remittance", async () => {
+  const text = await answer("remittance fee for $200");
+  const pct = Number(text.match(/\(([\d.]+)% of the amount\)/)?.[1]);
+  assert.ok(Number.isFinite(pct), `no percentage found in: ${text.slice(0, 120)}`);
   // The World Bank average is 6.2%. Ours should be orders below, not near it.
-  assert.ok(pct < 0.1, `fee is ${pct.toFixed(4)}% of $200 — too close to traditional rails to be right`);
+  assert.ok(pct < 0.1, `product states ${pct}% of $200 — too close to traditional rails`);
+});
+
+await check("the rate the PRODUCT states matches the oracle", async () => {
+  const text = await answer("what is USD to KES");
+  const stated = Number(text.match(/1 USD = ([\d.]+) KES/)?.[1]);
+  const expected = rates.cKES / rates.cUSD;
+  assert.ok(Number.isFinite(stated), `no rate found in: ${text.slice(0, 120)}`);
+  assert.ok(
+    Math.abs(stated - expected) / expected < 0.01,
+    `product says ${stated}, oracle says ${expected.toFixed(4)}`,
+  );
 });
 
 await check("CELO is worth more than a cent and less than a thousand dollars", () => {
