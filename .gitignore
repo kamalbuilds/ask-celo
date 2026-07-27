@@ -7,3 +7,5 @@ node_modules/
 out/
 cache/
 lib/
+.x402-wallet.json
+.env.local

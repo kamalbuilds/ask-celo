@@ -13,7 +13,9 @@
     "build": "vite build",
     "register:8004": "node scripts/register-8004.mjs",
     "deploy": "./scripts/deploy.sh",
-    "askbots": "node scripts/askbots.mjs"
+    "askbots": "node scripts/askbots.mjs",
+    "verify:thesis": "node scripts/verify-signature.mjs",
+    "x402:key": "node scripts/x402-key.mjs"
   },
   "dependencies": {
     "@celo/attribution-tags": "^0.2.0",
