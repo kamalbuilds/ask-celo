@@ -11,7 +11,8 @@
     "test": "node scripts/tag.test.mjs",
     "dev": "vite",
     "build": "vite build",
-    "register:8004": "node scripts/register-8004.mjs"
+    "register:8004": "node scripts/register-8004.mjs",
+    "deploy": "./scripts/deploy.sh"
   },
   "dependencies": {
     "@celo/attribution-tags": "^0.2.0",
