@@ -123,4 +123,25 @@ check("refund amount is the full balance, not a fixed price", () => {
   assert.notEqual(BigInt(auth.value), 10_000n, "refund must not use the $0.01 call price");
 });
 
+check("refund guards reject the ways this endpoint could be abused", () => {
+  // The endpoint spends OUR prepaid facilitator credits to move someone
+  // else's money. It cannot steal, since the payer signs. But unbounded it is
+  // a free settlement service for strangers.
+  const MAX = 50_000_000n;
+  const guard = (from, to, value, balance) => {
+    if (from === to) return "no-op";
+    if (value <= 0n) return "not positive";
+    if (value > MAX) return "over limit";
+    if (value !== balance) return "not full balance";
+    return "ok";
+  };
+  const a = PAYER;
+  const b = "0x1111111111111111111111111111111111111111";
+  assert.equal(guard(a, a, 1000n, 1000n), "no-op");
+  assert.equal(guard(a, b, 0n, 0n), "not positive");
+  assert.equal(guard(a, b, 999_000_000n, 999_000_000n), "over limit");
+  assert.equal(guard(a, b, 5_000n, 19_680_000n), "not full balance");
+  assert.equal(guard(a, b, 19_680_000n, 19_680_000n), "ok");
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
