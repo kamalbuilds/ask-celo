@@ -122,7 +122,7 @@ await check("distinct currencies do not resolve to the same rate", () => {
 await check("a stablecoin transfer costs a fraction of a cent", async () => {
   const gasPrice = await client.getGasPrice();
   const celoUsd = rates.cUSD; // cUSD per CELO, from the same oracle
-  const feeUsd = ((Number(gasPrice) * 65_000) / 1e18) * celoUsd;
+  const feeUsd = ((Number(gasPrice) * 86_000) / 1e18) * celoUsd;
 
   // Celo's whole pitch is sub-cent fees. If this ever reads above a cent the
   // number is wrong, or the chain has changed enough that the copy is a lie.
@@ -132,7 +132,7 @@ await check("a stablecoin transfer costs a fraction of a cent", async () => {
 
 await check("the fee is negligible against a real remittance", async () => {
   const gasPrice = await client.getGasPrice();
-  const feeUsd = ((Number(gasPrice) * 65_000) / 1e18) * rates.cUSD;
+  const feeUsd = ((Number(gasPrice) * 86_000) / 1e18) * rates.cUSD;
   const pct = (feeUsd / 200) * 100;
   // The World Bank average is 6.2%. Ours should be orders below, not near it.
   assert.ok(pct < 0.1, `fee is ${pct.toFixed(4)}% of $200 — too close to traditional rails to be right`);

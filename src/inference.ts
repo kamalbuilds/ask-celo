@@ -17,6 +17,14 @@ import { CFG } from "./config.js";
 const client = createPublicClient({ chain: CFG.chain, transport: http(CFG.rpc) });
 
 /**
+ * Gas for one stablecoin transfer, measured from real Celo mainnet settlements
+ * rather than assumed (median 85,794 across a sample of live
+ * transferWithAuthorization txs). Two earlier guesses were both wrong: 21,000
+ * is a bare native send, and 65,000 undercounted an ERC-20 transfer.
+ */
+const TRANSFER_GAS = 86_000;
+
+/**
  * Mento local-currency stablecoins, the thing Celo has that other chains do not.
  * Mainnet only: these are not deployed on Sepolia, and reading them there throws
  * a confusing "function does not exist" rather than returning nothing.
@@ -35,9 +43,9 @@ const fmt = (n: number) =>
 async function gasAnswer() {
   const [price, block] = await Promise.all([client.getGasPrice(), client.getBlockNumber()]);
   const gwei = Number(price) / 1e9;
-  // A plain transfer is 21k gas; CELO is the gas unit even when fees are
-  // abstracted, so this is what a payment really costs right now.
-  const celoPerTransfer = (Number(price) * 21000) / 1e18;
+  // CELO is the gas unit even when fees are abstracted, so this is what a
+  // stablecoin payment really costs right now.
+  const celoPerTransfer = (Number(price) * TRANSFER_GAS) / 1e18;
   return (
     `Gas on Celo is ${gwei.toFixed(3)} gwei at block ${block}. ` +
     `A simple transfer costs about ${celoPerTransfer.toFixed(8)} CELO. ` +
@@ -170,10 +178,10 @@ async function remittanceAnswer(q: string) {
     ratePerCelo(MENTO_MAINNET.cUSD),
   ]);
 
-  // A stablecoin transfer is about 65k gas. medianRate(cUSD) quotes cUSD per
-  // CELO directly, so it multiplies — inverting it overstated the fee ~250x,
-  // which would have been a confidently wrong number about money.
-  const feeUsd = (Number(gasPrice) * 65_000 / 1e18) * celoUsd;
+  // medianRate(cUSD) quotes cUSD per CELO directly, so it multiplies —
+  // inverting it overstated the fee ~250x, which would have been a
+  // confidently wrong number about money.
+  const feeUsd = ((Number(gasPrice) * TRANSFER_GAS) / 1e18) * celoUsd;
 
   const amount = Number(q.match(/\$?\s?(\d{2,6})/)?.[1] ?? 200);
   const WORLD_BANK_PCT = 6.2;
