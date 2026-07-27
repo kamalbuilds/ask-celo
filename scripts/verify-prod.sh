@@ -21,3 +21,15 @@ echo "=== frontend chain"
 curl -s https://ask-celo.vercel.app/ >/dev/null && echo " page serves"
 echo "=== mainnet facilitator"
 curl -s https://api.x402.celo.org/supported | python3 -c "import json,sys;print(' ', [k for k in json.load(sys.stdin)['kinds'] if k.get('x402Version')==2])"
+
+echo "=== facilitator credits (settlement stops at zero)"
+curl -s --max-time 20 "https://x402.celo.org/api/account?address=0xE626fC73E7FcE36a2371D7B4f3482Aed17308A77" \
+ | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+n=d.get('balances',{}).get('mainnet',0)
+print(f'  {n} mainnet credits (~{n} paid answers left)')
+if n < 50:
+    print('  ! LOW — top up at https://x402.celo.org or settlement starts failing')
+    sys.exit(1)
+"

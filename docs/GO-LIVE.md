@@ -87,3 +87,16 @@ credits tagged transactions, so untagged mainnet volume is lost permanently.
 
 Switching to mainnet is a config change, not new code: `X402_NETWORK=mainnet`
 selects the mainnet facilitator, USDC address, and registry in one place.
+
+## The failure nobody would notice
+
+Settlement is metered. Each paid answer spends one prepaid facilitator credit,
+and the account starts with 500. At zero, `/settle` returns 402 and **every
+purchase fails** — not loudly, and not in a way any test catches, because the
+code is fine. The service simply stops being able to take money.
+
+`npm run verify` now reports the balance and exits non-zero below 50 credits.
+Top up with USDC at https://x402.celo.org.
+
+At $0.01 per answer, 500 credits is 500 sales. That is a good problem to reach,
+but it should not arrive as a surprise.
