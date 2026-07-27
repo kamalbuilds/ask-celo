@@ -36,7 +36,13 @@
 
       <section id="ask" class="card" hidden>
         <label class="label" for="q">Your question</label>
-        <textarea id="q" rows="3" placeholder="Ask anything" enterkeyhint="send"></textarea>
+        <textarea id="q" rows="3" placeholder="What is a dollar worth in shillings?" enterkeyhint="send"></textarea>
+        <!-- A blank box hides what this can do. One tap fills a real question. -->
+        <div class="examples" role="group" aria-label="Example questions">
+          <button type="button" class="example">dollar to shillings</button>
+          <button type="button" class="example">dollar to pesos</button>
+          <button type="button" class="example">what does a transfer cost</button>
+        </div>
         <button id="ask-btn" class="primary">Ask · 1c</button>
         <p id="ask-status" class="status" role="status"></p>
         <div id="answer" class="answer" hidden></div>

@@ -122,6 +122,16 @@ $("topup-btn").addEventListener("click", async () => {
   }
 });
 
+// A blank box does not tell anyone what is worth asking. Tapping an example
+// fills it in rather than sending, so the user still chooses to spend.
+for (const chip of document.querySelectorAll<HTMLButtonElement>(".example")) {
+  chip.addEventListener("click", () => {
+    const box = $<HTMLTextAreaElement>("q");
+    box.value = chip.textContent ?? "";
+    box.focus();
+  });
+}
+
 $("ask-btn").addEventListener("click", async () => {
   const q = $<HTMLTextAreaElement>("q").value.trim();
   if (!q) return;
