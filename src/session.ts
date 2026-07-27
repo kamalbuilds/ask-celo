@@ -161,6 +161,11 @@ export async function sweepBack(to: Address): Promise<Hex | null> {
     body: JSON.stringify({ signature, authorization }),
   });
 
-  if (!res.ok) throw new Error(`refund failed (${res.status})`);
-  return (await res.json()).transaction ?? null;
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body.error ?? `refund failed (${res.status})`);
+
+  // A 200 with no hash means the settlement did not happen. Returning null here
+  // would surface as "Nothing to return" while the money is still sitting there.
+  if (!body.transaction) throw new Error("refund did not settle");
+  return body.transaction;
 }

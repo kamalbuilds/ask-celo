@@ -207,14 +207,43 @@ $("ask-btn").addEventListener("click", async () => {
 });
 
 $("sweep").addEventListener("click", async () => {
-  if (!wallet) return;
+  const btn = $<HTMLButtonElement>("sweep");
+
+  // Same rule as the top-up button: a tap must never silently do nothing.
+  if (!wallet) {
+    setStatus("topup-status", "Connecting…");
+    try {
+      wallet = await connect();
+    } catch {
+      wallet = null;
+    }
+    if (!wallet) {
+      setStatus("topup-status", "Connect a wallet to return your credit.", true);
+      return;
+    }
+  }
+
+  // Without this the button stays live during a settlement that takes seconds,
+  // and a second tap signs a second authorization for money already moving.
+  btn.disabled = true;
   setStatus("topup-status", "Returning your credit…");
   try {
     const hash = await sweepBack(wallet);
-    setStatus("topup-status", hash ? "Sent back to your wallet." : "Nothing to return.");
+    if (hash) {
+      $("receipts").innerHTML = `<a href="${CFG.explorer}/tx/${hash}" target="_blank" rel="noopener">Refund receipt</a>`;
+      setStatus("topup-status", "Sent back to your wallet.");
+    } else {
+      setStatus("topup-status", "Nothing to return.");
+    }
     await refreshBalance();
-  } catch {
-    setStatus("topup-status", "Could not return credit. Try again.", true);
+  } catch (e: any) {
+    // Say why. "Try again" on a refund that will never work is cruel, and the
+    // server's reason (over the limit, not the full balance) is actionable.
+    const reason = typeof e?.message === "string" && e.message.length < 120 ? e.message : "";
+    setStatus("topup-status", reason ? `Could not return credit: ${reason}` : "Could not return credit. Try again.", true);
+    console.error(e);
+  } finally {
+    btn.disabled = false;
   }
 });
 
