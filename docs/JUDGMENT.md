@@ -65,3 +65,34 @@ rewrite.
 - The blocker it removes is documented in Celo's own docs and still open upstream
   (`celo-org/minipay#45`)
 - Every claim is checkable on-chain in under a minute
+
+## Adversarial pass on the money paths
+
+Two findings, both from asking what an endpoint does *on my behalf* rather than
+whether it works. Neither showed up in tests, because both passed every test
+that existed. Tests confirm intent; they do not question it.
+
+**Users could not withdraw.** `sweepBack()` sent an ordinary ERC-20 transfer,
+but a session key holds USDC and never CELO, so it reverts with `gas required
+exceeds allowance (0)`. Anyone who topped up and did not spend it all was stuck
+permanently. Fixed by refunding through the same EIP-3009 path the payments use,
+and proven by recovering 19.68 USDC from a wallet that could not afford a single
+transaction (`0x9817455a…`).
+
+**Strangers could spend our credits.** `/api/refund` settled any well-formed
+authorization. It could never steal, since the payer signs it themselves, but it
+was a free settlement service on a public URL funded by our prepaid facilitator
+credits. Now bounded: sender and recipient must differ, the amount must be
+positive and under $50, and it must move the key's exact full balance. All four
+rejections verified against production.
+
+### Checked and found sound
+
+- **Replay.** EIP-3009 nonces are consumed in the token contract. Verified
+  against the real nonce from our settled refund: `authorizationState` is
+  `true`, so a repeat reverts before it reaches us.
+- **Tampering.** Editing the amount after signing is rejected by the
+  facilitator with `invalid_payment_amount`.
+- **Paying for errors.** The middleware verifies, runs the handler, and cancels
+  settlement if the handler throws or returns >= 400. Confirmed on-chain when an
+  upstream failed: the request errored and no funds moved.
