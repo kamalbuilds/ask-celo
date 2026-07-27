@@ -8,7 +8,7 @@
     "ready": "node scripts/readiness.mjs",
     "seller": "tsx src/seller.ts",
     "typecheck": "tsc --noEmit",
-    "test": "node scripts/tag.test.mjs && node scripts/receipt.test.mjs && forge test",
+    "test": "node scripts/tag.test.mjs && node scripts/receipt.test.mjs && node scripts/fx.test.mjs && forge test",
     "dev": "vite",
     "build": "vite build",
     "register:8004": "node scripts/register-8004.mjs",
