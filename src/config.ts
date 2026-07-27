@@ -37,3 +37,19 @@ export const CFG = {
     explorer: "https://celo-sepolia.blockscout.com",
   },
 }[NETWORK];
+
+/**
+ * The price of one answer, in one place.
+ *
+ * It was previously written out in seven: the 402 challenge, the receipt
+ * amount, the health endpoint, the button label, and the client's
+ * questions-left maths. Changing it meant changing all of them, and missing
+ * one would have the UI quoting a price the server does not charge.
+ */
+export const PRICE = {
+  micros: 10_000n,        // USDC has 6 decimals, so 10000 = $0.01
+  amount: "10000",        // the string form the x402 packages expect
+  usd: 0.01,
+  display: "$0.01",
+  short: "1c",            // for a button, where "$0.01" is too wide
+} as const;

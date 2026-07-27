@@ -5,7 +5,7 @@ import { paymentMiddleware, x402ResourceServer } from "@x402/hono";
 import { ExactEvmScheme } from "@x402/evm/exact/server";
 import { HTTPFacilitatorClient } from "@x402/core/server";
 import { getAddress } from "viem";
-import { NETWORK, CFG } from "../src/config.js";
+import { NETWORK, CFG, PRICE } from "../src/config.js";
 import { answer } from "../src/inference.js";
 import { recordReceipt, receiptStats, receiptsEnabled } from "../src/receipts.js";
 import { settleRefund } from "../src/refund.js";
@@ -35,7 +35,7 @@ const routes = {
         price: {
           // Celo is absent from the packages' default-asset table, so a bare
           // dollar price throws at request time. 6 decimals: $0.01 = "10000".
-          amount: "10000",
+          amount: PRICE.amount,
           asset: getAddress(CFG.usdc),
           extra: { name: "USDC", version: "2" as const },
         },
@@ -68,7 +68,7 @@ app.use("/api/ask", async (c, next) => {
     const decoded = JSON.parse(Buffer.from(header, "base64").toString());
     const hash = decoded.transaction ?? decoded.txHash;
     const payer = decoded.payer ?? decoded.from;
-    if (hash && payer) recordReceipt(payer, 10_000n, hash);
+    if (hash && payer) recordReceipt(payer, PRICE.micros, hash);
   } catch {
     // A malformed receipt header must never affect the paid response.
   }
@@ -102,7 +102,7 @@ app.get("/api/health", (c) =>
     // The 402 challenge is base64 in a header, which is right for machines and
     // useless to a person holding a wallet wondering what this costs. State the
     // terms in plain JSON so they are readable with curl alone.
-    price: { amount: "10000", decimals: 6, display: "$0.01", asset: CFG.usdc, symbol: "USDC" },
+    price: { amount: PRICE.amount, decimals: 6, display: PRICE.display, asset: CFG.usdc, symbol: "USDC" },
     docs: "https://github.com/kamalbuilds/ask-celo/blob/master/docs/TRY-IT.md",
     // Sales can keep working while attribution quietly stops. Surface it.
     receipts: { enabled: receiptsEnabled, ...receiptStats },

@@ -2,10 +2,10 @@ import { x402Client, wrapFetchWithPayment } from "@x402/fetch";
 import { ExactEvmScheme } from "@x402/evm/exact/client";
 import { privateKeyToAccount } from "viem/accounts";
 import type { Address } from "viem";
-import { CFG } from "../src/config.js";
+import { CFG, PRICE } from "../src/config.js";
 import { loadSessionKey, usdcBalance, toUsd, isMiniPay, connect, topUp, sweepBack } from "../src/session.js";
 
-const PRICE_USD = 0.01;
+const PRICE_USD = PRICE.usd;
 const TAG = import.meta.env.VITE_ATTRIBUTION_TAG as string | undefined;
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -144,6 +144,10 @@ $("topup-btn").addEventListener("click", async () => {
 
 // A blank box does not tell anyone what is worth asking. Tapping an example
 // fills it in rather than sending, so the user still chooses to spend.
+// The button label is part of the price. Render it from the same constant so
+// the UI cannot quote a figure the server does not charge.
+$("ask-btn").textContent = `Ask · ${PRICE.short}`;
+
 for (const chip of document.querySelectorAll<HTMLButtonElement>(".example")) {
   chip.addEventListener("click", () => {
     const box = $<HTMLTextAreaElement>("q");

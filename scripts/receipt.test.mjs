@@ -144,4 +144,16 @@ check("refund guards reject the ways this endpoint could be abused", () => {
   assert.equal(guard(a, b, 19_680_000n, 19_680_000n), "ok");
 });
 
+check("the price is consistent wherever it is expressed", () => {
+  // It used to be hardcoded in seven places across three files: the 402
+  // challenge, the receipt amount, the health endpoint, the button label and
+  // the client's questions-left maths. Missing one would have the UI quoting a
+  // price the server does not charge.
+  const PRICE = { micros: 10_000n, amount: "10000", usd: 0.01, display: "$0.01", short: "1c" };
+  assert.equal(BigInt(PRICE.amount), PRICE.micros, "string and bigint forms disagree");
+  assert.equal(Number(PRICE.micros) / 1e6, PRICE.usd, "micros do not equal the dollar figure");
+  assert.equal(PRICE.display, `$${PRICE.usd.toFixed(2)}`, "display string does not match the value");
+  assert.equal(PRICE.short, `${Math.round(PRICE.usd * 100)}c`, "short label does not match the value");
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
