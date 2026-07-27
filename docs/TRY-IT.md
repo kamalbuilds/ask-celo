@@ -32,7 +32,8 @@ import { ExactEvmScheme } from "@x402/evm/exact/client";
 import { privateKeyToAccount } from "viem/accounts";
 
 const client = new x402Client();
-client.register("eip155:*", new ExactEvmScheme(privateKeyToAccount(process.env.KEY)));
+const account = privateKeyToAccount(process.env.KEY);
+client.register("eip155:*", new ExactEvmScheme(account));
 const pay = wrapFetchWithPayment(fetch, client);
 
 const res = await pay("https://ask-celo.vercel.app/api/ask", {
@@ -41,10 +42,23 @@ const res = await pay("https://ask-celo.vercel.app/api/ask", {
   body: JSON.stringify({ q: "what is a dollar worth in shillings?" }),
 });
 
-console.log(await res.json());
-// the settlement tx hash comes back in the payment-response header
-console.log(JSON.parse(atob(res.headers.get("payment-response"))).transaction);
+if (res.status === 402) {
+  // The wallet could not pay. Almost always: no USDC on Celo mainnet at that
+  // address. Fund it and run again — the buyer needs no CELO, since the
+  // facilitator sponsors the settlement gas.
+  console.error("payment failed — is there USDC on Celo mainnet at", account.address, "?");
+} else {
+  console.log(await res.json());
+  // The settlement tx hash comes back in the payment-response header. It is
+  // absent on any non-200, so guard before decoding it.
+  const receipt = res.headers.get("payment-response");
+  if (receipt) console.log("settled:", JSON.parse(atob(receipt)).transaction);
+}
 ```
+
+The 402 is what an unfunded wallet gets, and the body is empty by design: the
+terms live in the `payment-required` header. `GET /api/health` states the price
+in plain JSON if you want to read it before paying.
 
 ## What it answers
 
