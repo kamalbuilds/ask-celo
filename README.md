@@ -50,6 +50,12 @@ left back to your MiniPay address. That path signs locally and talks straight to
 the chain, so it keeps working even if this server is down. Top up small amounts;
 it is a coin purse, not a bank account.
 
+## Try it
+
+Live on Celo mainnet: **https://ask-celo.vercel.app** — $0.01 per question,
+payable from a browser wallet or a script. See [docs/TRY-IT.md](docs/TRY-IT.md)
+for both paths, including how to read the payment terms without paying.
+
 ## Running it
 
 ```bash
