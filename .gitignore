@@ -4,3 +4,6 @@ node_modules/
 .submission.json
 .score-history.jsonl
 .next/
+out/
+cache/
+lib/
