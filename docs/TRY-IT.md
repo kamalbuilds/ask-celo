@@ -10,9 +10,9 @@ charges $0.01 in USDC per question.
    approval you will ever see: no signature prompt, no seed phrase, and the
    network fee is paid in USDC so you never need CELO.
 3. Ask something. Each question spends a cent from the session key.
-4. **Return unused credit** sends whatever is left back to your wallet. That
-   path signs locally and talks straight to the chain, so it keeps working even
-   if this server is down.
+4. **Return unused credit** sends whatever is left back to your wallet. Your
+   browser signs the refund and the facilitator pays the gas, because the
+   session key holds USDC and no CELO and so cannot pay for a transfer itself.
 
 Inside MiniPay it auto-connects, as MiniPay requires. In a desktop wallet it
 prompts once.

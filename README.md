@@ -45,10 +45,20 @@ prompt, a seed phrase, a gas fee, or the word CELO.
 
 ### Getting your money back
 
-The session key holds your funds, so **Return unused credit** sweeps whatever is
-left back to your MiniPay address. That path signs locally and talks straight to
-the chain, so it keeps working even if this server is down. Top up small amounts;
-it is a coin purse, not a bank account.
+**Return unused credit** sends whatever is left back to your own wallet.
+
+Worth being precise about how, because the obvious approach does not work: the
+session key holds USDC and never CELO, so it cannot pay for an ordinary
+transfer. It reverts with `gas required exceeds allowance (0)`. The refund
+therefore uses the same EIP-3009 path as the payments — your browser signs
+"move my balance to my address", and the facilitator submits it and pays the
+gas.
+
+That means the refund does depend on this service relaying the request, since
+settlement needs a metering key that must not live in a browser. The signature
+is yours and the destination is your own wallet, so nobody else can move your
+funds, but a refund is not possible while the service is down. Top up small
+amounts; it is a coin purse, not a bank account.
 
 ## Try it
 
