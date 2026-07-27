@@ -18,7 +18,8 @@
     "x402:key": "node scripts/x402-key.mjs",
     "register": "node scripts/register.mjs",
     "go-live": "./scripts/go-live.sh",
-    "verify": "./scripts/verify-prod.sh"
+    "verify": "./scripts/verify-prod.sh",
+    "fresh": "./scripts/fresh-clone.sh"
   },
   "dependencies": {
     "@celo/attribution-tags": "^0.2.0",
