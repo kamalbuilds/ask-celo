@@ -2,8 +2,17 @@
 
 Pay a cent a question. No subscription, no account, no card.
 
-Built on Celo. Answers are paid for with x402 stablecoin micropayments that
-settle on-chain in about a second.
+```
+"dollar to shillings"  ->  1 USD = 136 KES, from Mento's on-chain oracle.
+                           This is the rate the chain settles at, so a swap
+                           executes near it rather than at a counter's spread.
+```
+
+Answers come from live Celo chain data: exchange rates between local
+currencies, what a transfer actually costs, how much of a stablecoin exists,
+how fast blocks settle. Each one is read at the moment you ask.
+
+Payment is x402 stablecoin micropayments, settled on-chain in about a second.
 
 ## The problem this solves
 
