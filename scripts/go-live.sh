@@ -69,7 +69,11 @@ if [ -z "$TAG" ]; then
   echo "  Receipts will be written but credited to nobody until it is set."
 fi
 
-for kv in "X402_NETWORK=mainnet" "RECEIPTS_CONTRACT=$CONTRACT" "RECORDER_PRIVATE_KEY=$DEPLOYER_KEY" "ATTRIBUTION_TAG=$TAG"; do
+# VITE_ATTRIBUTION_TAG is not a duplicate of ATTRIBUTION_TAG. Vite only exposes
+# VITE_-prefixed variables to the browser bundle, and the top-up is the user's
+# only on-chain transaction — so without it every top-up ships untagged and the
+# volume is credited to nobody. Same trap as VITE_X402_NETWORK earlier.
+for kv in "X402_NETWORK=mainnet" "VITE_X402_NETWORK=mainnet" "RECEIPTS_CONTRACT=$CONTRACT" "RECORDER_PRIVATE_KEY=$DEPLOYER_KEY" "ATTRIBUTION_TAG=$TAG" "VITE_ATTRIBUTION_TAG=$TAG"; do
   K="${kv%%=*}"; V="${kv#*=}"
   [ -z "$V" ] && continue
   printf '%s' "$V" | vercel env add "$K" production --force >/dev/null 2>&1 && echo "  set $K"

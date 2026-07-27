@@ -47,3 +47,15 @@ else:
         print('  ! receipts are failing:', r.get('lastError','')[:90])
         sys.exit(1)
 "
+
+echo "=== the browser bundle carries the tag (server env is not enough)"
+BUNDLE=$(curl -s --max-time 20 https://ask-celo.vercel.app/ | grep -oE 'src="/assets/[^"]+\.js"' | head -1 | sed 's|src="/assets/||;s|"||')
+if [ -z "$BUNDLE" ]; then
+  echo "  ! could not find the app bundle"
+else
+  if curl -s --max-time 20 "https://ask-celo.vercel.app/assets/$BUNDLE" | grep -qE 'celo_[a-z0-9]{8,32}'; then
+    echo "  tag present in the shipped bundle — top-ups will be attributed"
+  else
+    echo "  no celo_ tag in the bundle — every top-up ships untagged and earns no Track 1 credit"
+  fi
+fi
