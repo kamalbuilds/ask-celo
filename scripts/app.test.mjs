@@ -2940,5 +2940,58 @@ await check("the funding amount is the same number everywhere", async () => {
   }
 });
 
+
+await check("the credit balance quoted in the docs is the real one", async () => {
+  // Seven places state the prepaid credit count, and it drops with every sale.
+  // The first real payer makes all seven wrong at once, and a judge checking
+  // /api/health against the docs sees a project quoting a number it has not
+  // re-read since writing.
+  //
+  // This is the same shape as the FX rate pinned in the README and the "17
+  // assertions" in JUDGMENT: a live value copied into prose.
+  const health = await remoteJson(`${LIVE_URL}/api/health`);
+  const actual = health?.settlementCredits?.mainnet;
+  if (actual === undefined) {
+    console.log("  skip  live credit balance unavailable");
+    return;
+  }
+
+  const { readFileSync, readdirSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const walk = (dir, prefix) =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory() ? walk(`${dir}/${e.name}`, `${prefix}${e.name}/`) : `${prefix}${e.name}`,
+    );
+  const docs = ["README.md", "STATUS.md", ...walk(`${root}/docs`, "docs/")].filter((f) =>
+    f.endsWith(".md"),
+  );
+  assert.ok(docs.length >= 6, `only ${docs.length} docs found; this check would be near-vacuous`);
+
+  const stale = [];
+  for (const d of docs) {
+    const text = readFileSync(`${root}/${d}`, "utf8");
+    // Word-bounded, and only where the number is immediately followed by the
+    // thing it counts. An unanchored lookahead matched digit fragments inside
+    // unrelated numbers ("50" out of "$0.01 ... 500").
+    for (const m of text.matchAll(
+      /\b(\d[\d,]*)\s+(?:mainnet\s+)?(?:prepaid|settlement credits?|paid answers|credits)\b/g,
+    )) {
+      // Skip thresholds: "below 50 credits" is a rule about when to warn, not
+      // a claim about the balance. Only flag a number presented as the
+      // current count.
+      const before = text.slice(Math.max(0, m.index - 30), m.index);
+      if (/below|under|less than|fewer than|above|over/i.test(before)) continue;
+      const n = Number(m[1].replace(/,/g, ""));
+      if (n !== actual) stale.push(`${d}: "${m[0].trim()}" vs ${actual} actual`);
+    }
+  }
+  assert.deepEqual(
+    stale,
+    [],
+    `docs quote a credit balance that no longer matches production:\n  ${stale.join("\n  ")}`,
+  );
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
