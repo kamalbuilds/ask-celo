@@ -24,10 +24,15 @@ Touch targets are 44px, and the answer is announced to a screen reader.
 TELEGRAM_HANDLE=@yourhandle npm run register
 
 # 2. Send ~0.2 CELO to 0xE626fC73E7FcE36a2371D7B4f3482Aed17308A77, then:
-#    CELOSCAN_API_KEY is optional but worth 60 seconds: Proof of Ship asks for
-#    a *verified* contract, and without the key the deploy succeeds unverified.
-#    Free at https://celoscan.io/myapikey
-CELOSCAN_API_KEY=<key> npm run go-live
+#    Two optional keys, both free and both worth a minute:
+#      CELOSCAN_API_KEY  https://celoscan.io/myapikey
+#        Proof of Ship asks for a *verified* contract. Without it the deploy
+#        succeeds unverified, and fixing that means redeploying.
+#      PINATA_JWT        https://pinata.cloud
+#        Pins the 8004 metadata to IPFS so the CID is the integrity check.
+#        Without it the identity still mints, pointing at /agent.json, which
+#        is mutable after registration and 8004scan flags that.
+CELOSCAN_API_KEY=<key> PINATA_JWT=<jwt> npm run go-live
 ```
 
 `go-live` deploys the receipts contract, verifies its source on Celoscan, mints

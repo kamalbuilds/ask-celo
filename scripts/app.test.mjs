@@ -2355,18 +2355,26 @@ await check("go-live refuses to deploy unverified without being told to", async 
   const goLive = readFileSync(`${root}/scripts/go-live.sh`, "utf8");
   const status = readFileSync(`${root}/STATUS.md`, "utf8");
 
-  assert.match(goLive, /CELOSCAN_API_KEY/, "go-live never mentions the verification key");
-  assert.match(
-    goLive,
-    /Continue without verification/i,
-    "go-live proceeds unverified without asking",
-  );
-  // The prompt must come before anything is spent.
-  assert.ok(
-    goLive.indexOf("CELOSCAN_API_KEY") < goLive.indexOf("deploying AskReceipts"),
-    "the verification warning comes after the deploy has started",
-  );
-  assert.match(status, /CELOSCAN_API_KEY/, "STATUS does not tell the reader about the key");
+  // Every optional key that silently costs something must be named before any
+  // gas is spent, and named in STATUS, which is the document a reader follows.
+  for (const key of ["CELOSCAN_API_KEY", "PINATA_JWT"]) {
+    // The key must be TESTED, not merely mentioned: naming it in a comment or
+    // passing it through to a child process does not warn anybody. A mutation
+    // that removed the guard while leaving the word behind passed this check
+    // until it looked for the test itself.
+    assert.match(
+      goLive,
+      new RegExp(`\\[ -z "\\$\\{${key}:-\\}" \\]`),
+      `go-live does not check whether ${key} is set`,
+    );
+    assert.ok(
+      goLive.indexOf(key) < goLive.indexOf("deploying AskReceipts"),
+      `the ${key} warning comes after the deploy has started`,
+    );
+    assert.match(status, new RegExp(key), `STATUS does not tell the reader about ${key}`);
+  }
+  assert.match(goLive, /Continue anyway/i, "go-live proceeds without asking");
+  assert.match(goLive, /Nothing was spent/i, "declining does not confirm nothing was spent");
 });
 
 
