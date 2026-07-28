@@ -2521,7 +2521,7 @@ await check("the agent contribution notes describe things that are actually true
     verified++;
     assert.match(strip("web/main.ts"), /body\.hint/, "notes claim the hint is rendered; it is not");
   }
-  if (/disabled at a zero balance/.test(notes)) {
+  if (/disabled at a\s+zero\s+balance/.test(notes)) {
     verified++;
     assert.match(
       strip("web/main.ts"),
@@ -2577,13 +2577,13 @@ await check("JUDGMENT's stated weakness is the one that actually exists", async 
   // Markdown wraps: matching a phrase that spans a line break needs \s+ for
   // the spaces. My first version used a literal space, never matched, and the
   // branch silently never ran — the counting guard is what surfaced that.
-  if (/what a dollar is worth in\s+shillings/i.test(judgment)) {
+  if (/what a\s+dollar\s+is\s+worth\s+in\s+shillings/i.test(judgment)) {
     checked++;
     assert.ok(canAnswer("what is a dollar worth in shillings"), "the FX claim is stale");
     assert.ok(canAnswer("what does it cost to send money home"), "the remittance claim is stale");
   }
   // If it claims an unsupported corridor is refused free, that must hold too.
-  if (/naira or cedi question is refused/i.test(judgment)) {
+  if (/naira or cedi\s+question\s+is\s+refused/i.test(judgment)) {
     checked++;
     assert.equal(canAnswer("naira to dollars"), false, "naira is answerable; the stated weakness is wrong");
     assert.equal(canAnswer("dollar to cedis"), false, "cedi is answerable; the stated weakness is wrong");
@@ -2723,6 +2723,36 @@ await check("the deadline we count down to is the organizers' deadline", async (
     Date.parse(ours),
     Date.parse(actual),
     `we count down to ${ours}; the organizers say ${actual}`,
+  );
+});
+
+
+await check("no doc check matches a phrase that a line break would split", async () => {
+  // Markdown wraps at ~80 columns. A regex with literal spaces matches only
+  // while the phrase happens to sit on one line, so reflowing a paragraph —
+  // which no reviewer would think twice about — silently disables the check.
+  //
+  // One branch had already been dead this way: it tested for "what a dollar is
+  // worth in shillings" and the phrase spanned a line, so it never ran.
+  const { readFileSync, readdirSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const dir = fileURLToPath(new URL(".", import.meta.url));
+
+  const fragile = [];
+  for (const f of readdirSync(dir).filter((x) => x.endsWith(".test.mjs"))) {
+    const src = readFileSync(`${dir}/${f}`, "utf8");
+    // Regexes tested against a markdown string, with three or more literal
+    // words and no \s+ anywhere.
+    for (const m of src.matchAll(
+      /\/([^/\n]*[a-z]+ [a-z]+ [a-z]+[^/\n]*)\/i?\.test\((readme|judgment|notes|status|md|doc)\)/g,
+    )) {
+      if (!m[1].includes("\\s")) fragile.push(`${f}: /${m[1]}/ vs ${m[2]}`);
+    }
+  }
+  assert.deepEqual(
+    fragile,
+    [],
+    `these match literal spaces against wrapped markdown, so reflowing a paragraph silently disables them:\n  ${fragile.join("\n  ")}`,
   );
 });
 
