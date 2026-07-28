@@ -26,6 +26,21 @@ deploy.
 cannot backfill, so untagged volume is lost permanently. Everything else can be
 done at any point before Aug 3, 09:00 GMT.
 
+**And do not compete on settlement count.** Measured on Jul 28: the facilitator
+is at 155,721 settlements, three wallets produce 88% of recent activity, and the
+leader alone runs ~12,900/day toward roughly 77,000 by the deadline. Our ceiling
+is 500, one per prepaid credit — 0.65% of the leader. The reachable win is
+settlements from a payer who is not the builder, which nobody else in the field
+has. See `docs/JUDGMENT.md`.
+
+## Two things waiting on a deploy
+
+Committed and built, not yet live — Vercel's free tier caps at 100 deploys a
+day and today hit it. Both ship on the next `vercel deploy --prod`:
+
+- link previews (`og:` / `twitter:card`), so a shared URL is not a bare link
+  in Telegram or on X
+
 ## What is true right now
 
 `npm run verify` reports it without editorialising:
