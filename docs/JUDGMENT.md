@@ -233,6 +233,16 @@ Track 2 needs no tag. Track 1 does. I had spent hours repeating an urgency I
 had inferred from the rules rather than checked against them, and the endpoint
 that answers it had been public the whole time.
 
+Then I over-corrected. "Attributed by the payTo wallet in your submission"
+reads like relief until you check whether the submission exists: there is no
+`.celobuilders.json`, so we have never registered, and the wallet they would
+attribute to has never been sent to them. Our `.submission.json` is a local
+file. Registration is still the single blocking input, and it gates more than
+I thought, not less.
+
+Two wrong readings of the same rule in ten minutes, in opposite directions.
+The fix for both was the same: check the state, not the wording.
+
 The same lesson as the settlement hash that turned out to be testnet, and the
 gas ask that was 5x the measured cost: **the claim I repeat most confidently is
 the one I am least likely to re-check.** Ask the source, especially when the

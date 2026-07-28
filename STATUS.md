@@ -39,14 +39,22 @@ Asked the organizers' API directly and it says otherwise, twice:
 > can't carry your tag — instead, settlements are attributed to the agent/payTo
 > wallet in your submission and counted automatically.
 
-So **Track 2 (Most x402 Payments) needs no tag at all**. It is attributed by
-`agentWalletAddress`, which is already `0xE626fC73…` in the submission. Every
-settlement this service takes is already being counted.
+So x402 settlements are not attributed by tag. They are attributed by the
+agent wallet **on file with celobuilders**, and the API is explicit that it
+counts "as soon as it's on file".
 
-The tag still matters for **Track 1 (Most Revenue Generated)**, which counts
-tagged transactions — for us that is the top-up transfers, which the browser
-sends and can tag. That one cannot backfill, so it does decay. It is just not
-the blocker on x402 volume I claimed it was.
+That is the part I had wrong in the other direction: we are **not registered at
+all**. There is no `.celobuilders.json`, so no project, no tag, and no wallet on
+file. `agentWalletAddress` sits in our local `.submission.json`, which they have
+never seen.
+
+**So `npm run register` is still the one blocking input, and it now blocks both
+tracks rather than one.** Until it runs, an x402 settlement into `0xE626fC73…`
+is credited to nobody, because nobody has told them the wallet is ours.
+
+It takes a minute: project name, public GitHub repo, personal Telegram handle,
+and the wallet. Registration requires Google sign-in — I checked the live skill
+for any other path and there is none.
 
 **And do not compete on settlement count.** Measured on Jul 28: the facilitator
 is at 155,721 settlements, three wallets produce 88% of recent activity, and the
