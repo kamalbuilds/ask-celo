@@ -104,7 +104,33 @@ await gate(3, "session key signs EIP-3009 and the facilitator settles", async ()
     // silently stops testing anything.
     body: JSON.stringify({ q: "dollar to shillings" }),
   });
-  if (res.status !== 200) throw new Error(`paid request returned ${res.status}`);
+  if (res.status !== 200) {
+    // "returned 402" hides the only thing worth knowing: whether the thesis
+    // broke or the wallet is simply empty. Read the balance and say which.
+    if (res.status === 402) {
+      const { createPublicClient, http, erc20Abi } = await import("viem");
+      const pub = createPublicClient({
+        chain: CFG.chain,
+        transport: http(CFG.rpc, { retryCount: 3, retryDelay: 300 }),
+      });
+      const balance = await pub
+        .readContract({
+          address: CFG.usdc,
+          abi: erc20Abi,
+          functionName: "balanceOf",
+          args: [account.address],
+        })
+        .catch(() => null);
+      if (balance === 0n)
+        throw new Error(
+          `test key ${account.address} holds 0 USDC on ${NETWORK}: fund it to run the kill test`,
+        );
+      throw new Error(
+        `402 with a balance of ${balance === null ? "unknown" : Number(balance) / 1e6} USDC: the signature was rejected`,
+      );
+    }
+    throw new Error(`paid request returned ${res.status}`);
+  }
   const receipt = res.headers.get("payment-response");
   if (!receipt) throw new Error("200 but no payment-response header — nothing settled");
   const decoded = JSON.parse(Buffer.from(receipt, "base64").toString());

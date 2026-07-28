@@ -118,8 +118,14 @@ const hasApiKey = /X402_API_KEY=x402_\w+/.test(envFile) || real(process.env.X402
 const blockers = [
   [
     !real(state.attributionTag) && !real(process.env.ATTRIBUTION_TAG),
-    "attribution tag — needs GitHub repo name + Telegram handle to register on celobuilders",
-    "blocks: Track 1 credit on every tx (retroactively unrecoverable, so this decays)",
+    "not registered on celobuilders — needs a Telegram handle and a Google sign-in",
+    // Corrected from the organizers' own skill: x402 settlements are
+    // attributed to the agent wallet on file and attribution IS retroactive
+    // across the whole window. What cannot be backfilled is the tag inside
+    // top-up calldata, because that has to be there at send time.
+    "blocks: the leaderboard reads zero for us until the wallet is on file. " +
+      "x402 volume is credited retroactively once it is; the tag inside top-up " +
+      "calldata is the part that cannot be backfilled",
   ],
   [
     !hasApiKey,

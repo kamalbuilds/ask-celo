@@ -972,5 +972,33 @@ await check("the drafts do not quote a live number that will date", async () => 
   assert.doesNotMatch(md, /1 USD = \d+/, "a drafted post quotes a live exchange rate");
 });
 
+
+await check("a failing gate says what is wrong, not just that something is", async () => {
+  // G3 reported 'paid request returned 402'. That hides the only thing worth
+  // knowing: whether the product thesis broke or the test wallet is empty.
+  // Those need opposite responses, and one of them is not a bug at all.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const gates = readFileSync(fileURLToPath(new URL("./gates.mjs", import.meta.url)), "utf8");
+  const g3 = gates.slice(gates.indexOf("await gate(3"), gates.indexOf("await gate(4"));
+  assert.match(g3, /holds 0 USDC/, "a 402 on the kill test does not distinguish empty wallet from broken signature");
+  assert.match(g3, /signature was rejected/, "a funded 402 is not reported as a signature failure");
+});
+
+await check("the blocker text matches what the organizers actually say", async () => {
+  // readiness.mjs called the tag 'retroactively unrecoverable'. The
+  // organizers' own skill says x402 attribution IS retroactive once the wallet
+  // is on file. A tool that overstates urgency trains you to ignore it.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const src = readFileSync(fileURLToPath(new URL("./readiness.mjs", import.meta.url)), "utf8");
+  assert.doesNotMatch(
+    src.replace(/^\s*\/\/.*$/gm, ""),
+    /Track 1 credit on every tx \(retroactively unrecoverable/,
+    "the blocker still claims x402 attribution cannot be backfilled",
+  );
+  assert.match(src, /retroactively|retroactive/, "the blocker no longer explains what is and is not recoverable");
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
