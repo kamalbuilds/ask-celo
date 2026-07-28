@@ -72,11 +72,23 @@ console.log(`registry: ${REGISTRY}`);
 /** Pin to IPFS so the CID is the integrity check. */
 async function pin(json) {
   const token = process.env.PINATA_JWT;
-  if (!token)
-    throw new Error(
-      "PINATA_JWT not set. The agentURI must be content-addressed (ipfs://): an " +
-        "https URI can be mutated after registration, which the validator flags.",
+  if (!token) {
+    // Was a hard failure, and go-live treats a failed mint as non-fatal, so a
+    // missing PINATA_JWT silently cost erc8004Url — a REQUIRED submission
+    // field — while the run reported success.
+    //
+    // ipfs:// is better: the CID is the integrity check, and an https URI can
+    // be swapped after registration. But a minted identity with an https URI
+    // beats no identity at all, and the hackathon field only needs the
+    // 8004scan URL. Say what is lost and continue.
+    console.warn(
+      "  ! PINATA_JWT not set: pinning to IPFS is skipped and the agentURI will be\n" +
+        "    an https URL. That still mints a valid identity and still yields an\n" +
+        "    8004scan URL for the submission, but the metadata is mutable after\n" +
+        "    registration, which 8004scan flags. Free JWT: https://pinata.cloud",
     );
+    return `${domain}/agent.json`;
+  }
   const res = await fetch("https://api.pinata.cloud/pinning/pinJSONToIPFS", {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${token}` },

@@ -243,6 +243,26 @@ export function createApp() {
     }
   });
 
+  // ERC-8004 agent metadata. The registry points at a URI; ipfs:// is better
+  // because the CID is the integrity check, but this is the fallback when no
+  // pinning key is available, and a URI that 404s would mint an identity
+  // nobody can resolve.
+  app.get("/agent.json", (c) =>
+    c.json({
+      type: "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+      name: "Ask",
+      description:
+        "Answers questions for a cent each, paid over x402 on Celo. Brings MiniPay " +
+        "wallets onto x402 with a device-local session key, since MiniPay implements " +
+        "neither personal_sign nor eth_signTypedData and cannot sign EIP-3009 directly.",
+      services: [
+        { name: "web", endpoint: "https://ask-celo.vercel.app" },
+        { name: "x402", endpoint: "https://ask-celo.vercel.app/api/ask", version: "2" },
+      ],
+      supportedTrust: ["reputation"],
+    }),
+  );
+
   app.get("/api/health", (c) =>
     c.json({
       ok: true,

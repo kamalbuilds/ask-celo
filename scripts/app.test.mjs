@@ -2369,5 +2369,40 @@ await check("go-live refuses to deploy unverified without being told to", async 
   assert.match(status, /CELOSCAN_API_KEY/, "STATUS does not tell the reader about the key");
 });
 
+
+await check("the 8004 fallback metadata URI actually resolves", async () => {
+  // Without PINATA_JWT the mint used to throw, and go-live treats a failed
+  // mint as non-fatal — so a missing key silently cost erc8004Url, a REQUIRED
+  // submission field, while the run reported success. Nothing documented the
+  // key either.
+  //
+  // It now falls back to an https URI. That is only acceptable if the URI
+  // resolves: minting an identity that points at a 404 is worse than not
+  // minting one, because it looks done.
+  const res = await fetch(url("/agent.json"));
+  assert.equal(res.status, 200, "/agent.json does not serve, so the fallback URI is a dead link");
+  const meta = await res.json();
+
+  // Must satisfy the same validator the mint applies.
+  assert.equal(meta.type, "https://eips.ethereum.org/EIPS/eip-8004#registration-v1");
+  assert.ok(Array.isArray(meta.services) && meta.services.length > 0, "no services[]");
+  assert.ok(!meta.endpoints, "`endpoints` is the deprecated shape 8004scan flags");
+  for (const s of meta.services) {
+    assert.ok(s.name, "every service needs a name");
+    assert.match(s.endpoint ?? "", /^https:\/\//, "every service needs an https endpoint");
+  }
+
+  // And Vercel must route it: only /api/* reaches the function by default.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const conf = JSON.parse(
+    readFileSync(fileURLToPath(new URL("../vercel.json", import.meta.url)), "utf8"),
+  );
+  assert.ok(
+    conf.rewrites.some((r) => r.source === "/agent.json"),
+    "/agent.json has no rewrite, so it 404s in production while passing locally",
+  );
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
