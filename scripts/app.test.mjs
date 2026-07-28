@@ -297,5 +297,16 @@ await check("the free refusal is shown to the user, not swallowed as an error", 
   assert.match(guard, /body\.hint/, "the client ignores the server's hint on a refusal");
 });
 
+
+await check("build output is not tracked in source", async () => {
+  // Vercel runs `npm run build`, so a committed dist/ is never served — it is
+  // stale output that can silently disagree with web/. Reviewing a diff where
+  // the bundle says one thing and the source another wastes real time, and it
+  // is how "I fixed that" turns into "the fix is not live".
+  const { execSync } = await import("node:child_process");
+  const tracked = execSync("git ls-files dist/", { encoding: "utf8" }).trim();
+  assert.equal(tracked, "", `dist/ is tracked in git:\n${tracked}`);
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
