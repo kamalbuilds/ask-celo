@@ -211,3 +211,29 @@ it.** The same failure produced a green test suite over a dead paywall, a
 harness reporting 9 settlements on a chain nobody paid on, and a kill test
 that had silently stopped testing settlement. In each case something claimed
 success and the claim was never checked against the thing itself.
+
+
+## I asked, and had the urgency backwards
+
+I told the user all day that the attribution tag gated both tracks and decayed
+by the hour. Then I asked the organizers' own endpoint:
+
+```bash
+curl -X POST https://celobuilders.xyz/hackathons/agentic-payments-defai/ask \
+  -H 'content-type: application/json' \
+  -d '{"question":"..."}'
+```
+
+> the facilitator's relayer submits the settlement transaction itself, so it
+> can't carry your tag — instead, settlements are attributed to the agent/payTo
+> wallet in your submission and counted automatically. Do NOT send separate
+> tagged transactions to mirror settlements.
+
+Track 2 needs no tag. Track 1 does. I had spent hours repeating an urgency I
+had inferred from the rules rather than checked against them, and the endpoint
+that answers it had been public the whole time.
+
+The same lesson as the settlement hash that turned out to be testnet, and the
+gas ask that was 5x the measured cost: **the claim I repeat most confidently is
+the one I am least likely to re-check.** Ask the source, especially when the
+source is one HTTP call away.

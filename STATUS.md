@@ -32,9 +32,21 @@ the ERC-8004 identity, wires the production environment, redeploys and scores.
 It refuses to start on an underfunded wallet rather than stranding a half-done
 deploy.
 
-**The tag is the urgent one.** Track 1 credits only tagged transactions and
-cannot backfill, so untagged volume is lost permanently. Everything else can be
-done at any point before Aug 3, 09:00 GMT.
+**Corrected Jul 28.** I spent the day calling the tag urgent for both tracks.
+Asked the organizers' API directly and it says otherwise, twice:
+
+> the facilitator's relayer submits the settlement transaction itself, so it
+> can't carry your tag — instead, settlements are attributed to the agent/payTo
+> wallet in your submission and counted automatically.
+
+So **Track 2 (Most x402 Payments) needs no tag at all**. It is attributed by
+`agentWalletAddress`, which is already `0xE626fC73…` in the submission. Every
+settlement this service takes is already being counted.
+
+The tag still matters for **Track 1 (Most Revenue Generated)**, which counts
+tagged transactions — for us that is the top-up transfers, which the browser
+sends and can tag. That one cannot backfill, so it does decay. It is just not
+the blocker on x402 volume I claimed it was.
 
 **And do not compete on settlement count.** Measured on Jul 28: the facilitator
 is at 155,721 settlements, three wallets produce 88% of recent activity, and the
