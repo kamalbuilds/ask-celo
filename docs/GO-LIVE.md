@@ -82,6 +82,27 @@ settlement attribution IS retroactive once the agent wallet is on file, so those
 are safe. What cannot be backfilled is the tag inside top-up calldata. Track 1 only
 credits tagged transactions, so untagged mainnet volume is lost permanently.
 
+## Every step rehearsed
+
+Nothing in this script runs for the first time when you run it. Each step was
+exercised as far as money allows:
+
+| Step | Rehearsed how |
+|---|---|
+| balance guard | refuses an underfunded wallet, exit 1, nothing spent |
+| missing keys | both warnings fire together, before any gas moves |
+| contract | compiles, 7 tests pass, deploy gas estimated at 330,598 against mainnet |
+| 8004 metadata | validates; both a missing and an invalid PINATA_JWT fall back cleanly |
+| 8004 mint | simulated against the real mainnet registry — would mint agentId 9746 |
+| fallback URI | `/agent.json` serves 200 in production and matches what the mint registers |
+| recording | run with a stub contract and agent id; readiness picked up `erc8004Url` and moved to 3/5 |
+| env wiring | `vercel env add … --force` verified end to end with a probe variable, then removed |
+| tag delivery | built with a tag set; it reaches the shipped browser bundle |
+
+The two that cannot be rehearsed are the two that need money: the actual deploy
+and the actual mint. Both are simulated first and refuse to send if the
+simulation fails.
+
 ## Already proven, no further risk
 
 - A session key signs EIP-3009 and the Celo facilitator settles it, on **Celo
