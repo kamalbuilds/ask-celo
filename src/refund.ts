@@ -33,7 +33,13 @@ export async function settleRefund(signature: string, authorization: Record<stri
   // Refund exactly what the key holds. Anything else is either a partial
   // sweep that strands the rest, or somebody using us to settle unrelated
   // transfers at our expense.
-  const pub = createPublicClient({ chain: CFG.chain, transport: http(CFG.rpc) });
+  // Retry: a throttled public RPC here means the balance read fails and the
+  // user cannot get their money back. Same reasoning as the answer path, and
+  // higher stakes, because this is the exit.
+  const pub = createPublicClient({
+    chain: CFG.chain,
+    transport: http(CFG.rpc, { retryCount: 3, retryDelay: 300 }),
+  });
   const balance = await pub.readContract({
     address: getAddress(CFG.usdc),
     abi: erc20Abi,

@@ -246,12 +246,20 @@ await check("chain reads retry instead of failing on a throttled RPC", async () 
   // surfaced as a flaky test suite, which is the same bug wearing a costume.
   const { readFileSync } = await import("node:fs");
   const { fileURLToPath } = await import("node:url");
-  const src = readFileSync(fileURLToPath(new URL("../src/inference.ts", import.meta.url)), "utf8");
-  const clients = [...src.matchAll(/createPublicClient\(\{[\s\S]{0,220}?\}\)/g)].map((m) => m[0]);
-  assert.ok(clients.length > 0, "no viem clients found");
-  for (const c of clients) {
-    assert.match(c, /retryCount/, `a client has no retry:\n${c}`);
+  // Every client, not just the answer path. refund.ts gates the exit — a
+  // throttled read there means a user cannot get their money back — and
+  // session.ts decides whether the sweep button appears at all, so a failed
+  // read shows $0.00 and tells someone their money is gone.
+  const files = ["inference.ts", "refund.ts", "session.ts"];
+  let found = 0;
+  for (const f of files) {
+    const src = readFileSync(fileURLToPath(new URL(`../src/${f}`, import.meta.url)), "utf8");
+    for (const m of src.matchAll(/createPublicClient\(\{[\s\S]{0,260}?\}\)/g)) {
+      found++;
+      assert.match(m[0], /retryCount/, `${f} has a client with no retry:\n${m[0]}`);
+    }
   }
+  assert.ok(found >= 3, `expected clients in all of ${files.join(", ")}, found ${found}`);
 });
 
 

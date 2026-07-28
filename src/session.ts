@@ -28,7 +28,13 @@ export function loadSessionKey(): { address: Address; privateKey: Hex } {
   return { address: privateKeyToAccount(pk).address, privateKey: pk };
 }
 
-export const publicClient = createPublicClient({ chain: CFG.chain, transport: http(CFG.rpc) });
+// Retry: every balance read in the browser goes through this, including the
+// one that decides whether the sweep button appears at all. A throttled RPC
+// showing $0.00 tells a user their money is gone.
+export const publicClient = createPublicClient({
+  chain: CFG.chain,
+  transport: http(CFG.rpc, { retryCount: 3, retryDelay: 300 }),
+});
 
 export async function usdcBalance(address: Address): Promise<bigint> {
   return publicClient.readContract({
