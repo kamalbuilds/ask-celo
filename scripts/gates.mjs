@@ -43,7 +43,16 @@ const CFG = NETWORKS[NETWORK];
 const SELLER = SELLER_URL;
 // Same source as SELLER_URL: the deployed state file already knows the payTo,
 // so a bare run reports real settlement counts instead of "not set".
-const PAY_TO = process.env.SELLER_PAY_TO ?? _state.payTo;
+// .submission.json is gitignored, so a clone has neither. The live service
+// publishes its own payTo on /api/health, which makes a bare run meaningful
+// for someone who has never seen this repo before.
+const PAY_TO =
+  (process.env.SELLER_PAY_TO || undefined) ??
+  _state.payTo ??
+  (await fetch(`${SELLER_URL}/api/health`, { signal: AbortSignal.timeout(15_000) })
+    .then((r) => r.json())
+    .then((h) => h.payTo)
+    .catch(() => undefined));
 const TAG = process.env.ATTRIBUTION_TAG ?? _state.attributionTag;
 
 let pass = 0;
@@ -176,7 +185,11 @@ await gate(4, "attribution tag survives on-chain", async () => {
 // G5 — the number that actually wins the track, and the one that survives sybil review:
 // settlements whose payer is somebody other than us.
 await gate(5, "settlements counted, third-party payers separated", async () => {
-  if (!PAY_TO) throw new Error("SELLER_PAY_TO not set");
+  if (!PAY_TO)
+    throw new Error(
+      "no payTo to count against. Set SELLER_PAY_TO, or ask the live service: " +
+        `curl -s ${SELLER}/api/health | grep payTo`,
+    );
   const url = `${CFG.explorer}/api/v2/addresses/${PAY_TO}/token-transfers?type=ERC-20`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`explorer returned ${res.status}`);
