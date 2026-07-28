@@ -1424,5 +1424,28 @@ await check("the docs do not quote a rate or benchmark that has already drifted"
   assert.deepEqual(wrong, [], `docs disagree with the product:\n  ${wrong.join("\n  ")}`);
 });
 
+
+await check("the README does not claim a tag we are not sending", async () => {
+  // The README said the top-up "carries our ERC-8021 attribution tag". The
+  // bundle contains no tag, because none is configured. A judge who checks
+  // finds the page claiming something the product does not do, which is worse
+  // than the missing tag itself.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const readme = readFileSync(fileURLToPath(new URL("../README.md", import.meta.url)), "utf8");
+
+  const claims = /transfer carries our\s+ERC-8021 attribution tag(?!\s+once)/.test(readme);
+  assert.ok(
+    !claims,
+    "the README states the tag is carried unconditionally; it is only carried when ATTRIBUTION_TAG is set",
+  );
+
+  // If it mentions the tag at all, it must name the variable that turns it on,
+  // so the claim is checkable rather than aspirational.
+  if (/attribution tag/i.test(readme)) {
+    assert.match(readme, /ATTRIBUTION_TAG/, "the README describes the tag without naming how it is set");
+  }
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();

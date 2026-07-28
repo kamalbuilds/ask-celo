@@ -50,8 +50,9 @@ MiniPay blocks *signing*, not *transacting*. `eth_sendTransaction` works fine.
 ```
 1. The app generates a session key in the browser. It never leaves the device.
 2. The user makes ONE ordinary transfer from MiniPay into that session key.
-   No signature prompt, gas paid in USDC, and the transfer carries our
-   ERC-8021 attribution tag.
+   No signature prompt, and gas paid in USDC. The transfer carries our
+   ERC-8021 attribution tag once one is set (`ATTRIBUTION_TAG`); until then
+   it is an ordinary untagged transfer, and `npm run verify` says so.
 3. From then on the session key signs the EIP-3009 authorizations that x402
    settlement needs. The facilitator sponsors the gas.
 4. Every question asked is a real on-chain settlement from a real person.
