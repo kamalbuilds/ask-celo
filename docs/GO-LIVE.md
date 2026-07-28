@@ -31,7 +31,7 @@ to make real settlements itself rather than only receive them.
 ## Then this runs unattended
 
 ```bash
-cd app
+# From the repo root.
 export X402_NETWORK=mainnet
 export DEPLOYER_KEY=<key for the funded address>
 export CELOSCAN_API_KEY=<for source verification>

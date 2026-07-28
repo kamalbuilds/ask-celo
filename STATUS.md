@@ -18,7 +18,7 @@ Touch targets are 44px, and the answer is announced to a screen reader.
 ## Do these two things
 
 ```bash
-cd app
+# From the repo root: this repo IS the app.
 
 # 1. Locks the attribution tag. Google sign-in, paste back the short code.
 TELEGRAM_HANDLE=@yourhandle npm run register

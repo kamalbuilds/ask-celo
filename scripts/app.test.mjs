@@ -1598,5 +1598,44 @@ await check("every curl the docs print actually works", async () => {
   assert.deepEqual(failures, [], `documented commands that do not work:\n  ${failures.join("\n  ")}`);
 });
 
+
+await check("the docs do not tell a reader to cd into a directory that does not exist", async () => {
+  // STATUS.md opened with `cd app`. In my working copy that path exists; in a
+  // clone it does not, because the repo root IS the app. The very first line
+  // of the handoff document failed for anyone but me, and the same instruction
+  // was in GO-LIVE and the X-post draft.
+  //
+  // This is the shape that only shows up from outside: every path I type works
+  // here, and that is exactly why it needs checking from a clone.
+  const { readFileSync, readdirSync, existsSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const walk = (dir, prefix) =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory() ? walk(`${dir}/${e.name}`, `${prefix}${e.name}/`) : `${prefix}${e.name}`,
+    );
+  const docs = ["README.md", "STATUS.md", ...walk(`${root}/docs`, "docs/")].filter((f) =>
+    f.endsWith(".md"),
+  );
+
+  const bad = [];
+  for (const d of docs) {
+    const text = readFileSync(`${root}/${d}`, "utf8");
+    for (const m of text.matchAll(/^\s*cd ([^\s&|;]+)/gm)) {
+      const target = m[1];
+      if (target.startsWith("$") || target === "-" || target.startsWith('"')) continue;
+      if (!existsSync(`${root}/${target}`)) bad.push(`${d}: cd ${target}`);
+    }
+    // And any repo-relative path in a shell block must resolve from the root.
+    for (const m of text.matchAll(/Path\("([^"]+\.json)"\)/g)) {
+      if (!existsSync(`${root}/${m[1]}`) && !m[1].includes("*")) {
+        // .submission.json is gitignored, so only flag a wrong prefix.
+        if (m[1].includes("/")) bad.push(`${d}: path "${m[1]}" does not resolve from the repo root`);
+      }
+    }
+  }
+  assert.deepEqual(bad, [], `instructions that fail outside my working copy:\n  ${bad.join("\n  ")}`);
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();

@@ -39,12 +39,12 @@ https://ask-celo.vercel.app
 ```bash
 python3 - <<'PY'
 import json, pathlib
-p = pathlib.Path("app/.submission.json")
+p = pathlib.Path(".submission.json")
 s = json.loads(p.read_text())
 s["socialLink"] = "https://x.com/kamalbuilds/status/PASTE_ID_HERE"
 p.write_text(json.dumps(s, indent=2) + "\n")
 PY
-cd app && node scripts/register.mjs draft   # re-checks what is still missing
+node scripts/register.mjs draft   # re-checks what is still missing
 ```
 
 The host must be `x.com` or `twitter.com`; the submission check enforces it, so
