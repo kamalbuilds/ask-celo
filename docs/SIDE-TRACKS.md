@@ -48,9 +48,25 @@ GitHub issue filed through an `aigora-feedback` skill. Probing the live site:
 - No `aigora-feedback` skill is published anywhere I can reach, and no
   repository under that name exists on GitHub.
 
-So the entry path for this track is not open yet. The sensible move is to
-re-probe closer to the deadline rather than invent a submission against an
-endpoint that does not exist.
+Re-probed later the same day. The catalog still renders `Loading catalog…`
+with nothing in it, and `/api/services` still returns the SPA shell rather
+than JSON. What did resolve: a **Register your agent** button exists and leads
+to "Sign in to continue — registering and managing your agents needs a
+connected wallet."
+
+So the track is enterable in principle, gated on a wallet signature. Two things
+still block a real entry:
+
+1. **It needs your wallet.** Registration is a signature, not a transaction, but
+   it creates an identity under your name, so it is yours to do rather than
+   mine.
+2. **The `aigora-feedback` skill does not exist.** The track requires feedback
+   filed through it, and it is published nowhere reachable — not on aigora.org,
+   not on GitHub (`total_count: 0`). Without it there is no defined way to
+   submit, whatever the profile says.
+
+The honest read: registering is possible, and the submission path is not. Worth
+five minutes if the skill appears before Aug 3.
 
 Re-check with:
 
