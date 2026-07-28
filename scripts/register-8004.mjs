@@ -87,7 +87,18 @@ async function pin(json) {
     headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
     body: JSON.stringify({ pinataContent: json }),
   });
-  if (!res.ok) throw new Error(`pinata ${res.status}: ${await res.text()}`);
+  if (!res.ok) {
+    // Degrade, do not abort. go-live treats a failed mint as non-fatal, so
+    // throwing here loses erc8004Url — a required submission field — over a
+    // bad or expired JWT, which is the most likely way this fails. The https
+    // fallback still mints a resolvable identity.
+    console.warn(
+      `  ! pinata ${res.status}: ${(await res.text()).slice(0, 120)}\n` +
+        "    Falling back to the https metadata URI. The identity still mints and\n" +
+        "    still yields an 8004scan URL; the metadata is mutable, which 8004scan flags.",
+    );
+    return `${domain}/agent.json`;
+  }
   return `ipfs://${(await res.json()).IpfsHash}`;
 }
 

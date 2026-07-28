@@ -2530,5 +2530,29 @@ await check("JUDGMENT's stated weakness is the one that actually exists", async 
   );
 });
 
+
+await check("a bad pinning key degrades the mint instead of losing it", async () => {
+  // go-live treats a failed 8004 mint as non-fatal, so anything that throws
+  // inside the mint silently costs erc8004Url — a REQUIRED submission field.
+  // A missing PINATA_JWT was already handled; an invalid or expired one still
+  // threw, and expiry is the likelier failure since the key is pasted once and
+  // used months later.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const src = readFileSync(fileURLToPath(new URL("./register-8004.mjs", import.meta.url)), "utf8");
+  const pin = src.slice(src.indexOf("async function pin("), src.indexOf("if (dryRun)"));
+
+  // Neither absence nor rejection may throw out of pin().
+  assert.doesNotMatch(pin, /throw new Error\(`pinata/, "a pinata error aborts the mint");
+  assert.match(pin, /agent\.json/, "there is no https fallback URI");
+  // And the fallback must be the URL we actually serve.
+  assert.match(pin, /\$\{domain\}\/agent\.json/, "the fallback URI is not built from the agent domain");
+
+  // Verified by running it: an invalid JWT logs the 401, says it is falling
+  // back, and produces agentURI https://ask-celo.vercel.app/agent.json.
+  const res = await fetch(url("/agent.json"));
+  assert.equal(res.status, 200, "the fallback URI does not resolve, so the mint would point at a 404");
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
