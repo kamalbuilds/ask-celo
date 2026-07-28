@@ -3,7 +3,7 @@
 Live on Celo mainnet at **https://ask-celo.vercel.app**, taking real USDC.
 
 Everything buildable is built, tested and deployed. Two inputs are outstanding,
-both of which need you, and one of them decays.
+both of which need you.
 
 **A stranger with an empty wallet can now use it.** Questions about the service
 ("is this a scam", "can I get a refund") are answered free, before the paywall;
@@ -48,9 +48,21 @@ all**. There is no `.celobuilders.json`, so no project, no tag, and no wallet on
 file. `agentWalletAddress` sits in our local `.submission.json`, which they have
 never seen.
 
-**So `npm run register` is still the one blocking input, and it now blocks both
-tracks rather than one.** Until it runs, an x402 settlement into `0xE626fC73…`
-is credited to nobody, because nobody has told them the wallet is ours.
+**So `npm run register` is still the one blocking input, and it blocks both
+tracks.** Until it runs, the leaderboard reads zero for us, because nobody has
+told them the wallet is ours.
+
+One thing I had wrong all day in the scary direction: for x402 settlements this
+is **not** a decaying deadline. The live skill says plainly:
+
+> attribution is retroactive across the whole hackathon window, but the
+> leaderboard reads zero until the wallet is added
+
+So settlements taken before registering are still counted once the wallet is on
+file. What genuinely cannot be backfilled is the **tag inside top-up
+transactions** (Track 1 revenue), because that data has to be in the calldata at
+send time. Register before driving top-up volume; x402 volume is safe either
+way.
 
 It takes a minute: project name, public GitHub repo, personal Telegram handle,
 and the wallet. Registration requires Google sign-in — I checked the live skill

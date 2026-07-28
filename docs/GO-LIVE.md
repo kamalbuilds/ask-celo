@@ -77,7 +77,9 @@ chain and calls `recorder()` to confirm the constructor argument landed.
 | `socialLink` | needs a published X post |
 
 Registration itself is one Google sign-in at `celobuilders.xyz` — that returns
-the attribution tag, which is the thing that cannot be backfilled. Track 1 only
+the attribution tag. Note the split, which I had wrong for most of a day: x402
+settlement attribution IS retroactive once the agent wallet is on file, so those
+are safe. What cannot be backfilled is the tag inside top-up calldata. Track 1 only
 credits tagged transactions, so untagged mainnet volume is lost permanently.
 
 ## Already proven, no further risk
