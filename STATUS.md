@@ -11,6 +11,10 @@ questions it cannot answer are refused free rather than charged; and the Ask
 button is live at a zero balance, so those answers are actually reachable. A
 paid question with no credit says what it costs instead of failing.
 
+Verified on a 360x640 phone against the live site: tap an example chip, tap
+Ask, and the answer is scrolled into view rather than left below the fold.
+Touch targets are 44px, and the answer is announced to a screen reader.
+
 ## Do these two things
 
 ```bash
