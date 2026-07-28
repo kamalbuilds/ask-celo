@@ -103,13 +103,34 @@ is 500, one per prepaid credit — 0.65% of the leader. The reachable win is
 settlements from a payer who is not the builder, which nobody else in the field
 has. See `docs/JUDGMENT.md`.
 
-## Two things waiting on a deploy
+## Everything is deployed
 
-Committed and built, not yet live — Vercel's free tier caps at 100 deploys a
-day and today hit it. Both ship on the next `vercel deploy --prod`:
+Vercel's free tier caps at 100 deploys a day and today hit it repeatedly, but
+the cap message is unreliable: it printed the error and deployed anyway more
+than once. `vercel ls` is the only honest answer, and `npm run verify` is the
+only proof. Both are green.
 
-- link previews (`og:` / `twitter:card`), so a shared URL is not a bare link
-  in Telegram or on X
+Verified live on a 360x640 phone: tap an example chip, tap Ask, and a visitor
+with an empty wallet gets a real answer. Link previews, the icon, 44px touch
+targets and the screen-reader live region are all serving.
+
+## How much of this is actually tested
+
+109 checks across four suites, plus 7 Solidity tests. More useful than the
+count: **42 deliberate mutations across seven rounds, every one now caught.**
+
+Each round broke one real invariant and asked whether anything noticed. The
+survivors clustered in two places, both of which no user reports until it is
+too late:
+
+- money leaving the system: all three refund bounds untested, a wrong USDC
+  address (cUSD cannot settle over EIP-3009 at all), a session key in
+  `sessionStorage` that would strand funds the moment a tab closed
+- attribution being recorded: the receipt hook deletable without a failure,
+  receipt failures reported as zero, the native-gas fallback removable
+
+Three checks passed for the wrong reason and were caught only by mutating
+rather than reading. One suite could not fail an async check at all.
 
 ## What is true right now
 
