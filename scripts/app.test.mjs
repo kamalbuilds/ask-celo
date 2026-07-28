@@ -1831,15 +1831,44 @@ await check("the 402 challenge declares how to call this endpoint", async () => 
   // declares: a schema that contradicts the server is worse than none.
   const { canAnswer } = await import("../src/inference.ts");
   assert.ok(canAnswer(bazaar.info.input.body.q), "the declared example question would be refused");
-  const max = bazaar.schema?.properties?.input?.properties?.body?.properties?.q?.maxLength;
-  if (max) {
-    const tooLong = "dollar to shillings ".repeat(Math.ceil(max / 10));
+  // Find maxLength wherever it sits rather than pinning a path: my first
+  // version read one level off and silently skipped, so a mutation that made
+  // the declared limit contradict the server passed. An `if (found)` guard
+  // around an assertion is a test that opts out of itself.
+  const findMaxLength = (node) => {
+    if (!node || typeof node !== "object") return undefined;
+    if (typeof node.maxLength === "number") return node.maxLength;
+    for (const v of Object.values(node)) {
+      const found = findMaxLength(v);
+      if (found !== undefined) return found;
+    }
+    return undefined;
+  };
+  const max = findMaxLength(bazaar.schema);
+  assert.ok(max, "the discovery schema declares no maxLength for the question");
+  {
+    // Just over the declared limit must be refused, and just under must not.
+    // Only asserting the first lets the schema declare 100,000 while the
+    // server enforces 500: every agent that trusts the schema then gets a 400.
+    const over = "a".repeat(max + 1);
+    const under = `dollar to shillings ${"a".repeat(Math.max(0, max - 40))}`;
     const rejected = await fetch(url("/api/ask"), {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ q: tooLong }),
+      body: JSON.stringify({ q: over }),
     });
-    assert.equal(rejected.status, 400, "the declared maxLength is not enforced");
+    assert.equal(rejected.status, 400, `declared maxLength ${max} is not enforced at ${over.length}`);
+
+    const accepted = await fetch(url("/api/ask"), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ q: under }),
+    });
+    assert.notEqual(
+      accepted.status,
+      400,
+      `a question of ${under.length} chars was refused, under the declared limit of ${max}`,
+    );
   }
 });
 
