@@ -65,7 +65,9 @@
         </div>
         <button id="ask-btn" class="primary">Ask</button>
         <p id="ask-status" class="status" role="status"></p>
-        <div id="answer" class="answer" hidden></div>
+        <!-- aria-live: the answer arrives asynchronously after payment. Without it a
+             screen-reader user pays a cent and is told nothing. -->
+        <div id="answer" class="answer" role="region" aria-live="polite" aria-label="Answer" hidden></div>
       </section>
 
       <section id="no-wallet" class="card" hidden>

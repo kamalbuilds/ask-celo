@@ -176,6 +176,10 @@ footer { margin-top: 20px; }
 }
 
 .example {
+  /* 44px minimum touch target (WCAG 2.5.5, and Apple/Google both say 44). At
+     7px padding these were 36px tall, which on a phone means mistaps on the
+     one control that shows a new visitor what to ask. */
+  min-height: 44px;
   padding: 7px 11px;
   font: inherit;
   font-size: 13px;

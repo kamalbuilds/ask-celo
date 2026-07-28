@@ -593,5 +593,28 @@ await check("the answer is scrolled into view when it appears", async () => {
   assert.equal(reveals, 1, `show("answer") appears ${reveals} times; it belongs only in showAnswer()`);
 });
 
+
+await check("touch targets meet the 44px minimum", async () => {
+  // Measured on a 360x640 phone: the example-question chips were 36px tall.
+  // Those are the control that shows a new visitor what to ask, so a mistap
+  // there costs the first impression. WCAG 2.5.5 and both platform guidelines
+  // say 44.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const css = readFileSync(fileURLToPath(new URL("../web/style.css", import.meta.url)), "utf8");
+  const example = css.slice(css.indexOf(".example {"), css.indexOf(".example {") + 400);
+  assert.match(example, /min-height:\s*44px/, "example chips are under the 44px touch minimum");
+});
+
+await check("the answer is announced to a screen reader", async () => {
+  // The answer arrives asynchronously after payment. Without a live region a
+  // screen-reader user pays a cent and is told nothing at all.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const html = readFileSync(fileURLToPath(new URL("../web/index.html", import.meta.url)), "utf8");
+  const answer = html.slice(html.indexOf('id="answer"') - 100, html.indexOf('id="answer"') + 200);
+  assert.match(answer, /aria-live/, "the answer element has no aria-live, so it is never announced");
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
