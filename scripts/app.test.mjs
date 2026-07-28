@@ -2869,5 +2869,41 @@ await check("the instructions use one command form, and it works", async () => {
   );
 });
 
+
+await check("the docs do not point at sections that do not exist", async () => {
+  // I wrote 'See "Two optional keys" above' referring to a section I had not
+  // written. A cross-reference to nothing sends a reader looking for the one
+  // piece of context the sentence admits they need.
+  const { readFileSync, readdirSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const walk = (dir, prefix) =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory() ? walk(`${dir}/${e.name}`, `${prefix}${e.name}/`) : `${prefix}${e.name}`,
+    );
+  const docs = ["README.md", "STATUS.md", ...walk(`${root}/docs`, "docs/")].filter((f) =>
+    f.endsWith(".md"),
+  );
+  assert.ok(docs.length >= 6, `only ${docs.length} docs found; this check would be near-vacuous`);
+
+  const dangling = [];
+  for (const d of docs) {
+    const text = readFileSync(`${root}/${d}`, "utf8");
+    // A quoted phrase introduced by See/see, which is how this file names its
+    // own sections.
+    for (const m of text.matchAll(/[Ss]ee "([^"]{4,60})"/g)) {
+      const target = m[1];
+      // The heading may wrap, so compare on collapsed whitespace.
+      const flat = text.replace(/\s+/g, " ");
+      const headings = [...text.matchAll(/^#{2,4} (.+)$/gm)].map((h) => h[1].trim());
+      const found =
+        headings.some((h) => h.toLowerCase().includes(target.toLowerCase())) ||
+        flat.toLowerCase().split(target.toLowerCase()).length > 2;
+      if (!found) dangling.push(`${d}: See "${target}"`);
+    }
+  }
+  assert.deepEqual(dangling, [], `cross-references with no target:\n  ${dangling.join("\n  ")}`);
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();

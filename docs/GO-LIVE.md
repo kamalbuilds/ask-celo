@@ -31,14 +31,31 @@ to make real settlements itself rather than only receive them.
 ## Then this runs unattended
 
 ```bash
-# From the repo root.
-export X402_NETWORK=mainnet
-export DEPLOYER_KEY=<key for the funded address>
-export CELOSCAN_API_KEY=<for source verification>
+# From the repo root. One command: it runs every step below in order,
+# checks the balance first, and refuses to start rather than half-finishing.
+DEPLOYER_KEY=<key for the funded address> \
+CELOSCAN_API_KEY=<free, celoscan.io/myapikey> \
+PINATA_JWT=<free, pinata.cloud> \
+  npm run go-live
+```
 
-npm run deploy -- mainnet        # deploys + verifies + re-reads state from chain
-npm run register:8004            # mints the agent identity, prints the 8004scan URL
-npm run score                    # confirms what moved
+Both keys are optional, free, and cost something real if omitted:
+
+| Key | Without it |
+|---|---|
+| `CELOSCAN_API_KEY` | the contract deploys but stays **unverified**, which costs a Proof of Ship item and cannot be fixed without redeploying |
+| `PINATA_JWT` | the 8004 metadata is not pinned to IPFS. The identity still mints and still yields the 8004scan URL the submission needs, but the metadata stays mutable and 8004scan flags that |
+
+`go-live` names both before spending anything and asks for confirmation, so
+neither is discovered after the gas is gone.
+
+The steps it runs, if you would rather drive them yourself:
+
+```bash
+export X402_NETWORK=mainnet
+npm run deploy -- mainnet   # deploys, verifies the source, re-reads from chain
+npm run register:8004       # mints the identity, prints the 8004scan URL
+npm run score               # confirms what moved
 ```
 
 Then set these on the deployment so every paid answer writes a tagged receipt:
