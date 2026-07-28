@@ -104,12 +104,19 @@ Optional but worth it, both drafted:
 `docs/aigora/feedback-draft.md` (a real reproducible bug, which is Track 4's
 whole scoring criterion).
 
-**And do not compete on settlement count.** Measured on Jul 28: the facilitator
-is at 155,721 settlements, three wallets produce 88% of recent activity, and the
-leader alone runs ~12,900/day toward roughly 77,000 by the deadline. Our ceiling
-is 500, one per prepaid credit — 0.65% of the leader. The reachable win is
-settlements from a payer who is not the builder, which nobody else in the field
-has. See `docs/JUDGMENT.md`.
+**And do not compete on settlement count.** Measured three times on Jul 28:
+148,118 settlements, then 155,721, then 158,958. That is 10,840 in one working
+day, and three wallets produce 88% of it. Our ceiling is 500, one per prepaid
+credit, which is well under one percent of what the leader adds daily.
+
+Re-measuring mattered. The trend confirms the strategy rather than assuming it:
+a count race here is not close, and pretending otherwise would waste the
+remaining time.
+
+The reachable win is settlements from a payer who is not the builder. Every
+competitor repo read during research sells an API and then buys from itself,
+so a single real third-party payment is a different claim from a large
+self-dealt number. See `docs/JUDGMENT.md`.
 
 ## Everything is deployed
 
