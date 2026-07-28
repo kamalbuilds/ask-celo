@@ -542,5 +542,30 @@ await check("the Ask button works at a zero balance", async () => {
   );
 });
 
+
+await check("every tx hash cited in the docs names its chain", async () => {
+  // Four docs cited a settlement as proof without saying which chain. It was
+  // Celo Sepolia; the service sells on mainnet, so a judge would fairly read
+  // "proven on-chain" as mainnet. An unlabelled hash next to a claim is the
+  // most expensive kind of imprecision: it reads as stronger evidence than it
+  // is, and it is checkable in one click.
+  const { readFileSync, readdirSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const docs = ["README.md", "STATUS.md", ...readdirSync(`${root}/docs`).map((f) => `docs/${f}`)];
+  const unlabelled = [];
+  for (const d of docs) {
+    const lines = readFileSync(`${root}/${d}`, "utf8").split("\n");
+    lines.forEach((line, i) => {
+      if (!/0x[0-9a-f]{64}/i.test(line)) return;
+      // The chain may be named on the hash's line or in the two lines either
+      // side, since markdown wraps.
+      const context = lines.slice(Math.max(0, i - 2), i + 3).join(" ");
+      if (!/sepolia|mainnet|testnet/i.test(context)) unlabelled.push(`${d}:${i + 1}`);
+    });
+  }
+  assert.deepEqual(unlabelled, [], `tx hashes cited without a chain:\n  ${unlabelled.join("\n  ")}`);
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();

@@ -76,9 +76,11 @@ credits tagged transactions, so untagged mainnet volume is lost permanently.
 
 ## Already proven, no further risk
 
-- A session key signs EIP-3009 and the Celo facilitator settles it:
+- A session key signs EIP-3009 and the Celo facilitator settles it, on **Celo
+  Sepolia** (testnet):
   `0x5f1ebe4ccc2a44454c7322e864e1892d06704e2d1cea06ee02cda2e3dc99e503`
-  (through the deployed production URL, not a local server).
+  (through the deployed production URL, not a local server). The same code
+  path serves mainnet; no mainnet settlement has happened yet.
 - Payment ordering is safe: the middleware verifies, runs the handler, and
   cancels settlement if the handler fails. Confirmed on-chain when an upstream
   errored — the request failed and no funds moved.

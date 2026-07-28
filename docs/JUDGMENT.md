@@ -13,7 +13,10 @@ sells an API and then buys from itself. This is the only design in the field
 where the payer is somebody other than the builder.
 
 **Claim quality.** Nothing is claimed that is not on-chain. The kill test
-settled (`0x5f1ebe4c…`) through the deployed URL, not a local server. MiniPay
+settled (`0x5f1ebe4c…`) through the deployed URL, not a local server — on
+**Celo Sepolia**. Four docs cited that hash as proof without naming the chain,
+which a judge would fairly read as mainnet, because that is where the service
+sells. Mainnet settlements: zero. MiniPay
 compatibility was verified in a simulated WebView and the transcript is in the
 commit message, not paraphrased.
 

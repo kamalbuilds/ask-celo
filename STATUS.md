@@ -71,8 +71,11 @@ wallets cannot produce the EIP-3009 signature x402 settlement requires. Millions
 of wallets are structurally locked out of Celo's own payment protocol, and the
 upstream request is still open (`celo-org/minipay#45`). Ask bridges it with a
 device-local session key: the user makes one ordinary transfer they can read,
-and that key signs every payment afterwards. Proven on-chain, settlement
-`0x5f1ebe4ccc2a44454c7322e864e1892d06704e2d1cea06ee02cda2e3dc99e503`.
+and that key signs every payment afterwards. Proven on-chain on **Celo Sepolia**,
+settlement `0x5f1ebe4ccc2a44454c7322e864e1892d06704e2d1cea06ee02cda2e3dc99e503`
+([explorer](https://celo-sepolia.blockscout.com/tx/0x5f1ebe4ccc2a44454c7322e864e1892d06704e2d1cea06ee02cda2e3dc99e503)).
+The service now sells on mainnet, where it has **0 settlements so far** — the
+mechanism is proven, the demand is not.
 
 Every competitor repo read during research sells an API and then buys from
 itself. This is the only design in the field where the payer is somebody else.

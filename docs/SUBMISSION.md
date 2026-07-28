@@ -70,8 +70,10 @@ curl https://ask-celo.vercel.app/api/health     # price, network, receipt status
 ```
 
 
-- Session-key settlement through the deployed URL, not a local server:
+- Session-key settlement through the deployed URL, not a local server, on
+  **Celo Sepolia**:
   `0x5f1ebe4ccc2a44454c7322e864e1892d06704e2d1cea06ee02cda2e3dc99e503`
+  Mainnet is live and configured identically, with 0 settlements to date.
 - MiniPay constraints verified together in a simulated WebView at 360x640:
   `eth_requestAccounts` + `eth_sendTransaction` only, zero signing attempts,
   fee currency set to the USDC *adapter*, legacy transaction shape, no Connect
