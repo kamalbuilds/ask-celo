@@ -2554,5 +2554,48 @@ await check("a bad pinning key degrades the mint instead of losing it", async ()
   assert.equal(res.status, 200, "the fallback URI does not resolve, so the mint would point at a 404");
 });
 
+
+await check("registration failures say what to do, not what threw", async () => {
+  // This flow runs once, by a human, against a single-use OAuth code that
+  // expires in minutes. The two likely failures are a mistyped or stale claim
+  // code and a connection token left over from an earlier session. Both
+  // produced a raw stack trace, which does not say the one thing that fixes
+  // either: start again.
+  //
+  // Verified by running both: a bogus claim code now prints "Codes are
+  // single-use and expire in about 15 minutes" with the exact command, and a
+  // stale token prints the reconnect instruction and names the file holding
+  // it.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const src = readFileSync(fileURLToPath(new URL("./register.mjs", import.meta.url)), "utf8");
+
+  assert.match(src, /single-use and expire/i, "a bad claim code does not explain itself");
+  assert.match(src, /explainAuth/, "auth failures are not translated");
+  assert.match(src, /\^40\[13\]/, "the 401/403 case the organisers document is not handled");
+  assert.match(src, /\.celobuilders\.json/, "the reconnect advice does not name the stale token file");
+
+  // Every authenticated call must route through the explanation, whether by
+  // apiOrExplain or an explicit catch. Scanning a fixed window ahead of the
+  // path string was the wrong shape: a multi-line call body pushed the catch
+  // out of range and the check failed on code that was already correct.
+  const authedCalls = [...src.matchAll(/(await )?(api|apiOrExplain)\((`?[^,)]+)/g)]
+    .filter(([, , , path]) => /submissions|hackathons/.test(path))
+    .map(([whole, , fn, path]) => ({ fn, path, whole }));
+  assert.ok(authedCalls.length >= 3, `only ${authedCalls.length} authenticated calls found`);
+
+  const unguarded = authedCalls.filter(({ fn, path }) => {
+    if (fn === "apiOrExplain") return false;
+    // A bare api() is fine only if this specific call chains .catch(explainAuth).
+    const at = src.indexOf(`api(${path}`);
+    return !src.slice(at, at + 400).includes("explainAuth");
+  });
+  assert.deepEqual(
+    unguarded.map((u) => u.path),
+    [],
+    `these can fail on auth without explaining it: ${unguarded.map((u) => u.path).join(", ")}`,
+  );
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();

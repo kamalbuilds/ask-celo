@@ -42,6 +42,28 @@ const auth = () => {
   return JSON.parse(readFileSync(AUTH_FILE, "utf8")).connection;
 };
 
+/**
+ * Turn the two auth failures into instructions.
+ *
+ * The organisers' own error guide says 401/403 means reconnect. A connection
+ * token sitting in .celobuilders.json from an earlier session is the normal
+ * way to hit that, and a stack trace does not say "run start again".
+ */
+function explainAuth(err) {
+  const why = String(err.message ?? err);
+  if (/^40[13]\b/.test(why)) {
+    console.error(`Your connection is no longer valid: ${why}\n`);
+    console.error("Reconnect (the sign-in link is fresh each time):");
+    console.error("  TELEGRAM_HANDLE=@yourhandle npm run register");
+    console.error("\nThe stale token is in .celobuilders.json; delete it if this repeats.");
+    process.exit(1);
+  }
+  throw err;
+}
+
+/** api(), with the two auth failures turned into instructions. */
+const apiOrExplain = (path, opts) => api(path, opts).catch(explainAuth);
+
 async function api(path, { method = "GET", body, token } = {}) {
   const res = await fetch(`${HOST}${path}`, {
     method,
@@ -108,7 +130,22 @@ switch (cmd) {
       throw new Error(`"${telegram}" is not a valid Telegram handle (5-32 chars, letters/digits/_)`);
     }
 
-    const out = await api("/auth/google/claim", { method: "POST", body: { claimCode: arg } });
+    const out = await api("/auth/google/claim", {
+      method: "POST",
+      body: { claimCode: arg },
+    }).catch((err) => {
+      // The likeliest failure in the whole flow: a mistyped or stale code.
+      // Codes are single-use and short-lived, so the fix is always the same
+      // and a stack trace does not say it.
+      const why = String(err.message ?? err);
+      if (/not found|expired|invalid/i.test(why)) {
+        console.error(`That claim code did not work: ${why}\n`);
+        console.error("Codes are single-use and expire in about 15 minutes. Start again:");
+        console.error(`  TELEGRAM_HANDLE=${telegram} npm run register`);
+        process.exit(1);
+      }
+      throw err;
+    });
     const connection = out.connection ?? out.token ?? out.accessToken;
     if (!connection) throw new Error(`no connection token in response: ${JSON.stringify(out).slice(0, 200)}`);
 
@@ -118,7 +155,7 @@ switch (cmd) {
 
     // Save the registration draft immediately. The response carries the
     // attribution tag, and that is the whole reason to register early.
-    const saved = await api("/submissions/me", {
+    const saved = await apiOrExplain("/submissions/me", {
       method: "PUT",
       token: connection,
       body: {
@@ -151,7 +188,7 @@ switch (cmd) {
   case "draft":
   case "submit": {
     const token = auth();
-    const fields = await api(`/hackathons/${HACKATHON}/submission-fields`);
+    const fields = await api(`/hackathons/${HACKATHON}/submission-fields`).catch(explainAuth);
     const spec = Array.isArray(fields) ? fields : (fields.submissionFields ?? fields.fields ?? []);
 
     // Only send keys the hackathon configures. Anything else is a 400.
@@ -187,7 +224,7 @@ switch (cmd) {
       ...(state.contractAddress ? { contractAddresses: [state.contractAddress] } : {}),
     };
 
-    const saved = await api("/submissions/me", { method: "PUT", token, body });
+    const saved = await api("/submissions/me", { method: "PUT", token, body }).catch(explainAuth);
     console.log(`draft saved: ${saved.projectName ?? "Ask"}`);
     if (saved.attributionTag && saved.attributionTag !== state.attributionTag) {
       state.attributionTag = saved.attributionTag;
@@ -207,7 +244,7 @@ switch (cmd) {
       break;
     }
 
-    const out = await api("/submissions/me/publish", {
+    const out = await apiOrExplain("/submissions/me/publish", {
       method: "POST",
       token,
       body: { confirm: true },
@@ -217,7 +254,8 @@ switch (cmd) {
   }
 
   case "status": {
-    console.log(JSON.stringify(await api("/submissions/me", { token: auth() }), null, 2));
+    const me = await api("/submissions/me", { token: auth() }).catch(explainAuth);
+    console.log(JSON.stringify(me, null, 2));
     break;
   }
 
