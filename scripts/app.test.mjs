@@ -2629,5 +2629,34 @@ await check("a failed claim does not waste the single-use OAuth code", async () 
   );
 });
 
+
+await check("the deadline we count down to is the organizers' deadline", async () => {
+  // readiness.mjs hardcodes the submission deadline and every urgency claim in
+  // the handoff rests on it. Organisers move dates; a countdown that is
+  // confidently wrong is worse than none, because it is believed.
+  const live = await fetch("https://celobuilders.xyz/hackathons/agentic-payments-defai", {
+    signal: AbortSignal.timeout(20_000),
+  })
+    .then((r) => r.json())
+    .catch(() => null);
+  if (!live) {
+    console.log("  skip  celobuilders unreachable");
+    return;
+  }
+  const actual = live.submissionDeadline ?? live.endsAt;
+  assert.ok(actual, "the hackathon no longer publishes a deadline");
+
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const src = readFileSync(fileURLToPath(new URL("./readiness.mjs", import.meta.url)), "utf8");
+  const ours = /HACK_DEADLINE = Date\.parse\("([^"]+)"\)/.exec(src)?.[1];
+  assert.ok(ours, "readiness no longer defines a deadline");
+  assert.equal(
+    Date.parse(ours),
+    Date.parse(actual),
+    `we count down to ${ours}; the organizers say ${actual}`,
+  );
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
