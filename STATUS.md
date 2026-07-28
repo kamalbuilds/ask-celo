@@ -116,8 +116,9 @@ targets and the screen-reader live region are all serving.
 
 ## How much of this is actually tested
 
-109 checks across four suites, plus 7 Solidity tests. More useful than the
-count: **42 deliberate mutations across seven rounds, every one now caught.**
+Four suites plus the Solidity tests, and `npm test` prints the current count.
+More useful than any count: **42 deliberate mutations across seven rounds,
+every one now caught.**
 
 Each round broke one real invariant and asked whether anything noticed. The
 survivors clustered in two places, both of which no user reports until it is

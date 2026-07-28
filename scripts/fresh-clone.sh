@@ -74,6 +74,19 @@ else
   exit 1
 fi
 
+echo "=== npm test passes on a bare clone"
+# The first thing a judge runs. This suite read .submission.json, which is
+# gitignored deploy state, so a clone failed on the very first command while
+# this script reported "a stranger can follow the README" — because it never
+# ran the tests.
+if npm test >"$DIR/.test.out" 2>&1; then
+  echo "  ok — $(grep -oE '[0-9]+ suites, [0-9]+ checks' "$DIR/.test.out" | tail -1)"
+else
+  echo "  ! npm test fails on a fresh clone:"
+  grep -E 'FAIL|Error' "$DIR/.test.out" | head -5 | sed 's/^/    /'
+  exit 1
+fi
+
 echo "=== the live service the README points at is up"
 curl -sf --max-time 20 https://ask-celo.vercel.app/api/health >/dev/null \
   && echo "  ok" || { echo "  ! the documented URL is not responding"; exit 1; }
