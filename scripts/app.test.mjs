@@ -1176,5 +1176,60 @@ await check("the refund endpoint still rejects every incomplete authorization", 
   }
 });
 
+
+await check("the session key persists across tabs and restarts", async () => {
+  // The key holds the user's money. sessionStorage would look identical in
+  // every test and in a single browsing session, then silently destroy funds
+  // the moment the tab closed: a new key, an empty balance, and the old
+  // USDC stranded at an address whose key no longer exists anywhere.
+  //
+  // A mutation to sessionStorage left every suite green.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const src = readFileSync(fileURLToPath(new URL("../src/session.ts", import.meta.url)), "utf8")
+    .replace(/^\s*\/\/.*$/gm, "");
+  assert.match(src, /localStorage\.getItem/, "the session key is not read from localStorage");
+  assert.match(src, /localStorage\.setItem/, "the session key is not written to localStorage");
+  assert.doesNotMatch(src, /sessionStorage/, "sessionStorage loses the key, and the money with it");
+});
+
+await check("the sweep refuses to settle a zero balance", async () => {
+  // Settling zero spends one of our prepaid facilitator credits to move
+  // nothing. Harmless once, and a free way to burn 500 credits in a loop.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const src = readFileSync(fileURLToPath(new URL("../src/session.ts", import.meta.url)), "utf8");
+  const sweep = src.slice(src.indexOf("export async function sweepBack"));
+  assert.match(
+    sweep.slice(0, 400),
+    /balance === 0n\)\s*return null/,
+    "sweepBack settles even when there is nothing to move",
+  );
+});
+
+await check("an empty question is refused before anything else runs", async () => {
+  // Removing the guard left every suite green, because the pre-check happens
+  // to reject whitespace too. That is coincidence, not coverage: the handler
+  // is the last line of defence and must hold on its own.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const app = readFileSync(fileURLToPath(new URL("../src/app.ts", import.meta.url)), "utf8");
+  const handler = app.slice(app.indexOf('app.post("/api/ask"'));
+  assert.match(handler.slice(0, 300), /!q\?\.trim\(\)/, "the handler no longer rejects an empty question");
+});
+
+await check("receipt failures are counted, not swallowed", async () => {
+  // receiptStats.failed is how a silent attribution outage becomes visible on
+  // /api/health. Deleting the increment left every suite green: failures would
+  // report as zero, which reads exactly like "nothing has gone wrong".
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const src = readFileSync(fileURLToPath(new URL("../src/receipts.ts", import.meta.url)), "utf8")
+    .replace(/^\s*\/\/.*$/gm, "");
+  assert.match(src, /receiptStats\.failed \+= 1/, "receipt failures are not counted");
+  assert.match(src, /receiptStats\.recorded \+= 1/, "receipt successes are not counted");
+  assert.match(src, /lastError/, "the failure reason is not kept, so health says nothing useful");
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
