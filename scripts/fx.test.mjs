@@ -498,8 +498,12 @@ await check("a huge amount is still capped", async () => {
   assert.match(a, /cap/i, "a capped amount must say it was capped");
 });
 
-console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 
 for (const [a, b] of [["cUSD", "cKES"], ["cUSD", "cCOP"], ["cUSD", "cREAL"], ["cEUR", "cKES"]]) {
   console.log(`  1 ${a.slice(1)} = ${(rates[b] / rates[a]).toFixed(4)} ${b.slice(1)}`);
 }
+
+// Summary last, always. It used to print before the rate table below, so a
+// throw in that loop produced "all passing" and then a stack trace: the exit
+// code was right and the words were wrong.
+console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);

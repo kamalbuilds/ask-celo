@@ -2021,5 +2021,63 @@ await check("no check passes by looping over an empty list", async () => {
   assert.ok(suites.length >= 4, `only ${suites.length} test suites found`);
 });
 
+
+await check("a failing check fails the whole build", async () => {
+  // The most important property of a test suite, and nothing checked it.
+  // Injects a genuinely failing check into a scratch copy of a real suite and
+  // asserts the failure reaches `npm test` — through the suite's exit code,
+  // through check-suites, and out.
+  //
+  // Worth doing because a suite already existed today that could not fail an
+  // async check at all, and reported ok while asserting against broken source.
+  const { readFileSync, writeFileSync, unlinkSync } = await import("node:fs");
+  const { execFileSync } = await import("node:child_process");
+  const { fileURLToPath } = await import("node:url");
+  const dir = fileURLToPath(new URL(".", import.meta.url));
+
+  // Outside scripts/, deliberately: check-suites globs that directory, and a
+  // scratch suite living there for a few hundred milliseconds made a parallel
+  // run try to load a file that had already been deleted.
+  const { tmpdir } = await import("node:os");
+  const scratch = `${tmpdir()}/ask-failing-${process.pid}.test.mjs`;
+  writeFileSync(
+    scratch,
+    [
+      'import assert from "node:assert/strict";',
+      "let n = 0;",
+      "const check = async (name, fn) => {",
+      "  n++;",
+      "  try { await fn(); console.log(`  ok   ${name}`); }",
+      "  catch (e) { console.log(`  FAIL ${name}: ${e.message}`); process.exitCode = 1; }",
+      "};",
+      'await check("this must fail", async () => { assert.equal(1, 2, "forced"); });',
+      'console.log(`\\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);',
+    ].join("\n"),
+  );
+
+  try {
+    let exitCode = 0;
+    try {
+      execFileSync("npx", ["tsx", scratch], { encoding: "utf8", cwd: `${dir}/..` });
+    } catch (e) {
+      exitCode = e.status ?? 1;
+    }
+    assert.equal(exitCode, 1, "a suite with a failing check exited 0");
+
+    // Deliberately NOT running check-suites here: it re-runs every suite,
+    // including this one, which took four minutes and tripped the harness's
+    // own 120s timeout. Assert its exit logic by reading it instead.
+    const harness = readFileSync(`${dir}/check-suites.mjs`, "utf8");
+    assert.match(
+      harness,
+      /process\.exit\(failed \? 1 : 0\)/,
+      "check-suites no longer propagates a failing suite",
+    );
+    assert.match(harness, /!\/FAILED\|FAIL \/\.test\(out\)/, "check-suites no longer detects FAIL output");
+  } finally {
+    unlinkSync(scratch);
+  }
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
