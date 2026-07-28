@@ -2905,5 +2905,40 @@ await check("the docs do not point at sections that do not exist", async () => {
   assert.deepEqual(dangling, [], `cross-references with no target:\n  ${dangling.join("\n  ")}`);
 });
 
+
+await check("the funding amount is the same number everywhere", async () => {
+  // Three files quote what to send: STATUS, GO-LIVE, and the script's own
+  // refusal message. They agree today and nothing keeps them agreeing, which
+  // is how the ask was 0.5 for most of a day against a measured cost of 0.11.
+  //
+  // Sending too little means the run refuses and the user tries again. Sending
+  // what a stale doc says means trusting a number nobody measured.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const goLive = readFileSync(`${root}/scripts/go-live.sh`, "utf8");
+
+  // The script is the source of truth: it enforces the floor and prints the ask.
+  const floor = Number(/BAL_CELO < ([\d.]+)/.exec(goLive)?.[1]);
+  const ask = Number(/Send ~([\d.]+) CELO/.exec(goLive)?.[1]);
+  assert.ok(Number.isFinite(floor) && Number.isFinite(ask), "go-live no longer states a floor and an ask");
+  assert.ok(ask > floor, `the ask (${ask}) is not above the floor (${floor}), so following it can still fail`);
+
+  for (const doc of ["STATUS.md", "docs/GO-LIVE.md"]) {
+    const text = readFileSync(`${root}/${doc}`, "utf8");
+    // Only amounts a reader is told to SEND. The measured cost table quotes
+    // 0.067 and 0.108, which are facts about gas rather than instructions, and
+    // treating them as instructions made this fail on correct docs.
+    const quoted = [...text.matchAll(/[Ss]end\s+\*{0,2}~?([\d.]+) CELO/g)].map((m) => Number(m[1]));
+    assert.ok(quoted.length > 0, `${doc} does not tell the reader how much to send`);
+    const wrong = quoted.filter((n) => n !== ask && n !== floor);
+    assert.deepEqual(
+      wrong,
+      [],
+      `${doc} quotes ${wrong.join(", ")} CELO; go-live asks for ${ask} and refuses below ${floor}`,
+    );
+  }
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
