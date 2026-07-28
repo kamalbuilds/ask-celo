@@ -315,8 +315,12 @@ $("sweep").addEventListener("click", async () => {
     await refreshBalance();
   } catch (e: any) {
     // Say why. "Try again" on a refund that will never work is cruel, and the
-    // server's reason (over the limit, not the full balance) is actionable.
-    const reason = typeof e?.message === "string" && e.message.length < 120 ? e.message : "";
+    // server's reason (over the limit, not the full balance, out of credit) is
+    // actionable. The cap was 120 characters, which silently dropped the
+    // longest and most important message — the one that explains the money is
+    // still safe — and replaced it with "Try again". 400 fits every message
+    // the server can produce while still refusing a stack trace.
+    const reason = typeof e?.message === "string" && e.message.length < 400 ? e.message : "";
     setStatus("topup-status", reason ? `Could not return credit: ${reason}` : "Could not return credit. Try again.", true);
     console.error(e);
   } finally {

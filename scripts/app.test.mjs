@@ -2155,5 +2155,33 @@ await check("a failed refund says the money is still safe", async () => {
   assert.match(src, /throw new Error\(reason\)/, "unrecognised refund failures lose their reason");
 });
 
+
+await check("the client can display every refund message the server sends", async () => {
+  // The browser only showed a server reason under 120 characters and fell back
+  // to "Try again" otherwise. The longest message the server produces is the
+  // one that matters most: out of facilitator credit, your money is still
+  // safe, nothing moved. It was 198 characters, so the user would have seen
+  // "Try again" on a refund that could not work, and no reassurance at all.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const main = readFileSync(fileURLToPath(new URL("../web/main.ts", import.meta.url)), "utf8");
+  const refund = readFileSync(fileURLToPath(new URL("../src/refund.ts", import.meta.url)), "utf8");
+
+  const cap = Number(/e\.message\.length < (\d+)/.exec(main)?.[1]);
+  assert.ok(Number.isFinite(cap), "the client no longer bounds the displayed reason");
+
+  // Every literal the refund path can throw must fit under that cap.
+  const messages = [...refund.matchAll(/throw new Error\(\s*("(?:[^"\\]|\\.)*"(?:\s*\+\s*"(?:[^"\\]|\\.)*")*)/g)].map(
+    (m) => m[1].split(/"\s*\+\s*"/).join("").replace(/^"|"$/g, ""),
+  );
+  assert.ok(messages.length >= 4, `only ${messages.length} refund messages found`);
+  const dropped = messages.filter((t) => t.length >= cap);
+  assert.deepEqual(
+    dropped,
+    [],
+    `the client cap of ${cap} would replace these with "Try again":\n  ${dropped.map((d) => `${d.length} chars: ${d.slice(0, 60)}…`).join("\n  ")}`,
+  );
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
