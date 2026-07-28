@@ -1705,5 +1705,31 @@ await check("the gates run meaningfully with no configuration at all", async () 
   }
 });
 
+
+await check("an empty env var falls back to the default, like an absent one", async () => {
+  // CELO_RPC="" produced an empty RPC URL, because ?? keeps an empty string.
+  // Every chain read then fails against "". A deploy platform that writes an
+  // unset variable as empty, or a shell with `export CELO_RPC=`, would have
+  // broken every answer while the config looked fine.
+  //
+  // This bug appeared three times today: SELLER_PAY_TO, SELLER_URL, and here.
+  // Absent and empty have to mean the same thing.
+  const { execSync } = await import("node:child_process");
+  const { fileURLToPath } = await import("node:url");
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const out = execSync(
+    `node --input-type=module -e "const m = await import('./src/config.ts'); console.log(JSON.stringify({rpc: m.CFG.rpc, network: m.NETWORK}))" 2>/dev/null`,
+    {
+      cwd: root,
+      encoding: "utf8",
+      timeout: 30_000,
+      env: { ...process.env, CELO_RPC: "", X402_NETWORK: "", ATTRIBUTION_TAG: "" },
+    },
+  );
+  const cfg = JSON.parse(out.trim().split("\n").pop());
+  assert.ok(cfg.rpc.startsWith("https://"), `empty CELO_RPC produced rpc ${JSON.stringify(cfg.rpc)}`);
+  assert.equal(cfg.network, "testnet", "empty X402_NETWORK should mean testnet, not something else");
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();

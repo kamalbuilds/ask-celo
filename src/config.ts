@@ -16,8 +16,12 @@ import { celo, celoSepolia } from "viem/chains";
  */
 const env = (key: string): string | undefined => {
   const viteEnv = (import.meta as any).env;
-  if (viteEnv) return viteEnv[`VITE_${key}`];
-  return typeof process === "undefined" ? undefined : process.env[key];
+  // `|| undefined`, not the raw value: an exported-but-empty variable is a
+  // string, so `??` at the call sites keeps it and CELO_RPC="" produced an
+  // empty RPC URL that broke every chain read. Absent and empty must mean the
+  // same thing for a config default to work at all.
+  if (viteEnv) return viteEnv[`VITE_${key}`] || undefined;
+  return typeof process === "undefined" ? undefined : process.env[key] || undefined;
 };
 
 /** Env vars the browser bundle needs, which therefore need a VITE_ twin. */
