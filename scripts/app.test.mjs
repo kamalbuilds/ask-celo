@@ -451,5 +451,48 @@ await check("the README's promise about not charging is enforced by code", async
   assert.equal(about.status, 200, "README promises service questions are free; the server charges");
 });
 
+
+await check("a POST with no body does not hang", async () => {
+  // This is the check that would have caught a 30s production hang. The
+  // pre-check read the body with c.req.raw.clone().json(); the clone's stream
+  // was never consumed, and on Vercel's Node runtime every POST to /api/ask
+  // stalled until the gateway gave up — including one with no body.
+  //
+  // The whole suite passed while production was down, because Node's fetch
+  // and Vercel's runtime handle an abandoned clone differently. A timeout is
+  // the only assertion that survives that difference.
+  for (const init of [{}, { body: "" }, { body: "not json" }]) {
+    const t0 = Date.now();
+    const res = await fetch(url("/api/ask"), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      signal: AbortSignal.timeout(5000),
+      ...init,
+    }).catch((e) => {
+      throw new Error(`POST ${JSON.stringify(init)} never returned: ${e.message}`);
+    });
+    assert.ok(Date.now() - t0 < 5000, `POST ${JSON.stringify(init)} took too long`);
+    assert.ok(res.status < 500, `POST ${JSON.stringify(init)} returned ${res.status}`);
+  }
+});
+
+await check("the request body is read once, through the cached parser", async () => {
+  // c.req.json() caches on the context; c.req.raw.clone() does not, and the
+  // abandoned stream is what hung production. The timeout check above cannot
+  // see this locally, so assert the shape directly.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  // Strip comments first: this file explains the bug, and the explanation
+  // must not trip the check that guards against it.
+  const app = readFileSync(fileURLToPath(new URL("../src/app.ts", import.meta.url)), "utf8")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "");
+  assert.doesNotMatch(
+    app,
+    /raw\s*\.\s*clone\(\)/,
+    "reading the body via raw.clone() hangs POSTs on Vercel's Node runtime",
+  );
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();

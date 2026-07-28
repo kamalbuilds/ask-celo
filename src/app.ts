@@ -113,11 +113,13 @@ export function createApp() {
   // The middleware charges on the way in, so without this the user pays $0.01
   // to be told what else to try. 402-then-suggestions is a refund request.
   app.use("/api/ask", async (c, next) => {
-    const body = await c.req.raw
-      .clone()
-      .json()
-      .catch(() => ({}) as { q?: string });
-    const q = (body as { q?: string }).q;
+    // c.req.json() caches the parsed body on the context, so the handler and
+    // the payment middleware can both read it afterwards. An earlier version
+    // used c.req.raw.clone().json(), which left the clone's stream unconsumed
+    // and hung every POST on Vercel's Node runtime for 30s until the gateway
+    // gave up — including requests with no body at all.
+    const body = await c.req.json<{ q?: string }>().catch(() => ({}) as { q?: string });
+    const q = body.q;
     // Questions about the service are answered free. Someone deciding whether
     // to trust us has not agreed to pay anything yet, and "is this a scam"
     // behind a paywall answers itself.
