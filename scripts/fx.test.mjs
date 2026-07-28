@@ -254,6 +254,46 @@ await check("chain reads retry instead of failing on a throttled RPC", async () 
   }
 });
 
+
+await check("oracle rates agree with the real market", async () => {
+  // The product's whole value claim is that these numbers are worth a cent.
+  // Nothing until now compared them to reality: a stale or misread oracle
+  // would return a confident, wrong rate about someone's remittance and every
+  // other test would still pass. Checked against an independent FX source.
+  const { fxPair } = await import("../src/inference.ts");
+  const { answer } = await import("../src/inference.ts");
+
+  const live = await fetch("https://open.er-api.com/v6/latest/USD", {
+    signal: AbortSignal.timeout(15_000),
+  })
+    .then((r) => r.json())
+    .then((d) => d.rates)
+    .catch(() => null);
+  if (!live) {
+    console.log("  skip  independent FX source unreachable");
+    return;
+  }
+
+  const cases = [
+    ["dollar to shillings", "KES"],
+    ["dollar to pesos", "COP"],
+    ["dollar to reais", "BRL"],
+  ];
+  for (const [q, code] of cases) {
+    assert.ok(fxPair(q), `${q} no longer resolves`);
+    const text = await answer(q);
+    const ours = Number(text.match(/=\s*([\d.]+)/)?.[1]);
+    assert.ok(Number.isFinite(ours), `no rate parsed from: ${text}`);
+    const drift = Math.abs(ours - live[code]) / live[code];
+    // 5% is loose enough for oracle lag and a thin on-chain market, tight
+    // enough to catch a stale feed or a decimals mistake.
+    assert.ok(
+      drift < 0.05,
+      `${code}: we say ${ours}, the market says ${live[code]} (${(drift * 100).toFixed(1)}% off)`,
+    );
+  }
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 
 for (const [a, b] of [["cUSD", "cKES"], ["cUSD", "cCOP"], ["cUSD", "cREAL"], ["cEUR", "cKES"]]) {
