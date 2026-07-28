@@ -109,6 +109,10 @@ export function createApp() {
     }
   });
 
+  // Long enough for any real question, short enough that a large body cannot
+  // be used as free compute.
+  const MAX_QUESTION_CHARS = 500;
+
   // Refuse an unanswerable question BEFORE the payment middleware sees it.
   // The middleware charges on the way in, so without this the user pays $0.01
   // to be told what else to try. 402-then-suggestions is a refund request.
@@ -120,6 +124,19 @@ export function createApp() {
     // gave up — including requests with no body at all.
     const body = await c.req.json<{ q?: string }>().catch(() => ({}) as { q?: string });
     const q = body.q;
+    // Bound the input before anything else touches it. A 40KB question reached
+    // the paywall and a 1MB one burned seconds of function time before failing
+    // on a regex. Nobody asks a real question in more than a couple of hundred
+    // characters, and an unbounded body is free compute for whoever wants it.
+    if (q && q.length > MAX_QUESTION_CHARS) {
+      return c.json(
+        {
+          error: "question too long",
+          hint: `Keep it under ${MAX_QUESTION_CHARS} characters. Nothing this service answers needs more.`,
+        },
+        400,
+      );
+    }
     // Questions about the service are answered free. Someone deciding whether
     // to trust us has not agreed to pay anything yet, and "is this a scam"
     // behind a paywall answers itself.

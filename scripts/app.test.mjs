@@ -1762,5 +1762,32 @@ await check("no config default is defeated by an empty string", async () => {
   assert.deepEqual(bad, [], `env defaults that an empty string defeats:\n  ${bad.join("\n  ")}`);
 });
 
+
+await check("an oversized question is refused before it costs anything", async () => {
+  // A 40KB question reached the paywall and a 1MB one burned 3.2s of function
+  // time before failing on a regex. Both are free compute for anyone who
+  // wants it, on a service whose whole premise is charging per request.
+  const long = "dollar to shillings ".repeat(2000);
+  const res = await fetch(url("/api/ask"), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ q: long }),
+  });
+  assert.equal(res.status, 400, `a ${long.length}-character question returned ${res.status}`);
+  const body = await res.json();
+  assert.match(body.hint ?? "", /characters/, "the refusal does not say what the limit is");
+
+  // A normal question must still get through: the limit has to be generous
+  // enough that no real user meets it.
+  const normal = await fetch(url("/api/ask"), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      q: "what is a dollar worth in kenyan shillings right now, and how does that compare",
+    }),
+  });
+  assert.equal(normal.status, 402, "a normal-length question was rejected as too long");
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
