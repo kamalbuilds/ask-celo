@@ -251,7 +251,10 @@ await check("the answered question is cleared from the box", async () => {
   const { readFileSync } = await import("node:fs");
   const { fileURLToPath } = await import("node:url");
   const main = readFileSync(fileURLToPath(new URL("../web/main.ts", import.meta.url)), "utf8");
-  const afterAnswer = main.slice(main.indexOf('$("answer").textContent = answer'));
+  // Anchor on the paid-answer call, not on a DOM assignment: the assignment
+  // moved into showAnswer() during a refactor and this check broke while the
+  // behaviour was fine. Anchor on what the code does, not how it is spelled.
+  const afterAnswer = main.slice(main.indexOf("showAnswer(answer)"));
   assert.match(
     afterAnswer.slice(0, 400),
     /\("q"\)\.value = ""/,
@@ -565,6 +568,29 @@ await check("every tx hash cited in the docs names its chain", async () => {
     });
   }
   assert.deepEqual(unlabelled, [], `tx hashes cited without a chain:\n  ${unlabelled.join("\n  ")}`);
+});
+
+
+await check("the answer is scrolled into view when it appears", async () => {
+  // On a 360x640 phone the answer renders ~500px tall, below the fold. The
+  // user taps Ask, nothing appears to happen, and the product looks broken at
+  // the moment it worked. Desktop hid this because the whole page fits.
+  // Verified in an emulated phone: without the scroll the answer sits at
+  // y=854 in a 640px viewport; with it, scrollY=770 and it is visible.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const main = readFileSync(fileURLToPath(new URL("../web/main.ts", import.meta.url)), "utf8");
+  assert.match(main, /scrollIntoView/, "the answer is revealed without being scrolled to");
+  // Not smooth: it is ignored under headless emulation and with reduced-motion,
+  // so the behaviour that matters could not be verified. Instant always runs.
+  assert.doesNotMatch(
+    main,
+    /scrollIntoView\(\{[^}]*smooth/,
+    "smooth scrolling cannot be verified and is skipped under reduced-motion",
+  );
+  // And every path that reveals an answer must go through the same helper.
+  const reveals = [...main.matchAll(/show\("answer"\)/g)].length;
+  assert.equal(reveals, 1, `show("answer") appears ${reveals} times; it belongs only in showAnswer()`);
 });
 
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);

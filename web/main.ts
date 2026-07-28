@@ -162,6 +162,25 @@ $("topup-btn").addEventListener("click", async () => {
 // fills it in rather than sending, so the user still chooses to spend.
 // The button label is part of the price. Render it from the same constant so
 // the UI cannot quote a figure the server does not charge.
+
+/**
+ * Reveal the answer and bring it into view.
+ *
+ * On a 360x640 phone the answer renders about 500px tall, below the fold: the
+ * user taps Ask, nothing appears to happen, and the product looks broken at
+ * the exact moment it worked. Desktop hid this because the whole page fits.
+ */
+function showAnswer(text: string) {
+  const el = $("answer");
+  el.textContent = text;
+  show("answer");
+  // Deliberately not `behavior: "smooth"`. Smooth scrolling is ignored under
+  // headless emulation and in any browser with reduced-motion set, which means
+  // the one behaviour that matters here could not be verified. An instant
+  // scroll always happens, so it is the one that ships.
+  el.scrollIntoView({ block: "center" });
+}
+
 $("ask-btn").textContent = `Ask · ${PRICE.short}`;
 
 for (const chip of document.querySelectorAll<HTMLButtonElement>(".example")) {
@@ -194,8 +213,7 @@ $("ask-btn").addEventListener("click", async () => {
       // text that tells the user how to get their money's worth.
       const body = await res.json().catch(() => ({}) as { hint?: string });
       if (body.hint) {
-        $("answer").textContent = body.hint;
-        show("answer");
+        showAnswer(body.hint);
         setStatus("ask-status", "");
         return;
       }
@@ -209,8 +227,7 @@ $("ask-btn").addEventListener("click", async () => {
       throw new Error(`request failed (${res.status})`);
     }
     const { answer } = await res.json();
-    $("answer").textContent = answer;
-    show("answer");
+    showAnswer(answer);
     setStatus("ask-status", "");
 
     // Clear the box. The answered question sitting there means a second one
