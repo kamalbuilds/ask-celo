@@ -746,5 +746,56 @@ await check("the contract is deployable and the funding ask matches its cost", a
   assert.ok(floor < celo * 10, `floor ${floor} CELO asks for far more than the ${celo.toFixed(3)} needed`);
 });
 
+
+await check("submission values match the hosts the organizers accept", async () => {
+  // The organizers restrict several fields to specific hosts, and publishing
+  // rejects anything else. Finding that out at submission time, against a
+  // deadline, is the worst moment to learn it. Checked against their live
+  // field spec rather than a copy of it.
+  const { readFileSync, existsSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const root = fileURLToPath(new URL("..", import.meta.url));
+
+  const spec = await fetch(
+    "https://celobuilders.xyz/hackathons/agentic-payments-defai/submission-fields",
+    { signal: AbortSignal.timeout(15_000) },
+  )
+    .then((r) => r.json())
+    .catch(() => null);
+  if (!spec) {
+    console.log("  skip  celobuilders unreachable");
+    return;
+  }
+  const fields = Array.isArray(spec) ? spec : (spec.submissionFields ?? spec.fields ?? []);
+  assert.ok(fields.length > 0, "no submission fields returned");
+
+  const state = existsSync(`${root}/.submission.json`)
+    ? JSON.parse(readFileSync(`${root}/.submission.json`, "utf8"))
+    : {};
+
+  for (const f of fields) {
+    const value = state[f.key];
+    if (!value) continue; // absent is a readiness question, not a validity one
+    if (f.allowedHosts?.length) {
+      const host = new URL(value).hostname;
+      assert.ok(
+        f.allowedHosts.includes(host),
+        `${f.key} is ${host}, which is not in ${f.allowedHosts.join(", ")}`,
+      );
+    }
+    if (f.options?.length) {
+      assert.ok(f.options.includes(value), `${f.key} is "${value}", not one of ${f.options.join(", ")}`);
+    }
+  }
+
+  // go-live builds the 8004 URL. Its host must be acceptable before it runs.
+  const goLive = readFileSync(`${root}/scripts/go-live.sh`, "utf8");
+  const built = /erc8004Url"\] = f"https:\/\/([^/]+)/.exec(goLive)?.[1];
+  const allowed = fields.find((f) => f.key === "erc8004Url")?.allowedHosts;
+  if (built && allowed) {
+    assert.ok(allowed.includes(built), `go-live builds an 8004 URL on ${built}, not in ${allowed.join(", ")}`);
+  }
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
