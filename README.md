@@ -151,6 +151,15 @@ Things that cost time to discover:
   method reverts.
 - The facilitator's dashboard root serves an SPA, so a naive health check gets
   HTTP 200 with an HTML shell. Assert a JSON content type or you get a false green.
+- **`@x402/extensions` ships more than the docs suggest.** `declareDiscoveryExtension`
+  (Bazaar) puts your endpoint's method, body shape and example into the 402
+  challenge, so an agent can call you without reading prose. Worth ten minutes.
+- **Do not build on `builderCodeResourceServerExtension` for Celo attribution.**
+  It exists, and `GET /supported` on the Celo facilitator returns
+  `"extensions": []`, so the facilitator ignores it. Settlements are attributed
+  to the `payTo` wallet registered with the organisers, and the ERC-8021 tag
+  belongs in your own transactions (the top-up), not in the settlement the
+  relayer submits.
 
 ## Licence
 

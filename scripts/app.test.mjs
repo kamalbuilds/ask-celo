@@ -1843,5 +1843,43 @@ await check("the 402 challenge declares how to call this endpoint", async () => 
   }
 });
 
+
+await check("the facilitator's advertised extensions match what we rely on", async () => {
+  // We declare a Bazaar discovery extension, which lives in our own challenge
+  // and needs nothing from the facilitator. We deliberately do NOT use
+  // builderCodeResourceServerExtension, because GET /supported returns
+  // "extensions": [] and the facilitator would ignore it.
+  //
+  // If that ever changes, this check is where we find out, rather than
+  // discovering a whole attribution path was silently doing nothing.
+  const { NETWORKS } = await import("../src/config.ts");
+  const supported = await fetch(`${NETWORKS.mainnet.facilitator}/supported`, {
+    signal: AbortSignal.timeout(20_000),
+  })
+    .then((r) => r.json())
+    .catch(() => null);
+  if (!supported) {
+    console.log("  skip  facilitator unreachable");
+    return;
+  }
+
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const app = readFileSync(fileURLToPath(new URL("../src/app.ts", import.meta.url)), "utf8");
+
+  const advertised = supported.extensions ?? [];
+  if (app.includes("builderCodeResourceServerExtension")) {
+    assert.ok(
+      advertised.length > 0,
+      "we use the builder-code extension but the facilitator advertises none, so it is ignored",
+    );
+  }
+  // And the scheme we settle with must still be offered on our network.
+  const ours = supported.kinds?.some(
+    (k) => k.network === NETWORKS.mainnet.caip && k.scheme === "exact",
+  );
+  assert.ok(ours, "the facilitator no longer offers `exact` on our network");
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
