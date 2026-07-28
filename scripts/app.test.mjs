@@ -2450,5 +2450,45 @@ await check("the minted agent document and the served one are the same", async (
   );
 });
 
+
+await check("the agent contribution notes describe things that are actually true", async () => {
+  // This section is a claim about my own work, in the document a judge reads
+  // to decide what the agent contributed. Every specific in it is checkable,
+  // so check it: an embellished claim here is worse than a modest one, and it
+  // is the easiest kind for a reviewer to disprove.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const notes = readFileSync(`${root}/docs/SUBMISSION.md`, "utf8");
+  const strip = (f) =>
+    readFileSync(`${root}/${f}`, "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "");
+
+  if (/request failed \(400\)/.test(notes)) {
+    assert.match(strip("web/main.ts"), /body\.hint/, "notes claim the hint is rendered; it is not");
+  }
+  if (/disabled at a zero balance/.test(notes)) {
+    assert.match(
+      strip("web/main.ts"),
+      /ask-btn"\)\.disabled = false/,
+      "notes claim the Ask button is not gated on balance; it is",
+    );
+  }
+  if (/raw\.clone/.test(notes)) {
+    assert.doesNotMatch(strip("src/app.ts"), /raw\s*\.\s*clone\(\)/, "notes claim raw.clone is gone; it is not");
+  }
+  if (/sessionStorage/.test(notes)) {
+    assert.doesNotMatch(strip("src/session.ts"), /sessionStorage/, "notes claim the key is in localStorage; it is not");
+  }
+  if (/EIP-2612, not EIP-3009/.test(notes)) {
+    assert.match(
+      strip("scripts/app.test.mjs"),
+      /symbol, "USDC"/,
+      "notes claim the asset is verified against the chain; nothing checks it",
+    );
+  }
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();

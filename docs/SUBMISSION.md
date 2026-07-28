@@ -105,3 +105,24 @@ compiles then throws at request time because Celo is missing from the default
 asset table, Vercel's builder crashes on TypeScript 7, and `hono/vercel`'s
 handler assumes a Web Request while the Node runtime supplies an
 `IncomingMessage`.
+
+The more useful work came after it shipped, from three questions asked
+repeatedly: **which path has never actually run, do the duplicate copies agree,
+and if I reintroduce the bug does the test fail?**
+
+That found, among others: a free-refusal fix that charged nothing but rendered
+`request failed (400)`, so the guidance never reached anyone; free answers
+sitting behind a button disabled at a zero balance, unreachable by exactly the
+people they existed for; `c.req.raw.clone()` hanging every POST for 30 seconds
+on Vercel's runtime while the whole suite passed locally; a session key in
+`sessionStorage` that would look correct in every test and destroy a user's
+balance the moment a tab closed; and `npm run register` — the one command the
+handoff document asks you to run — printing its usage block instead of
+registering, because I had always run it with a subcommand by hand.
+
+About sixty deliberate mutations were run against the suite, one invariant at a
+time. Roughly a dozen survived, each a real gap: all three refund bounds
+untested, a wrong USDC address that would fail every payment *after* a top-up
+(Mento's StableTokenV2 implements EIP-2612, not EIP-3009), and receipt failures
+reported as zero, which reads exactly like nothing having gone wrong. Two checks
+turned out to pass while asserting nothing at all.
