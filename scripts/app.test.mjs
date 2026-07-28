@@ -1025,5 +1025,57 @@ await check("every suite's check() awaits, so an async assertion can fail", asyn
   assert.deepEqual(broken, [], `suites where a failing async check cannot fail the run:\n  ${broken.join("\n  ")}`);
 });
 
+
+await check("the refund guards each reject what they exist to reject", async () => {
+  // /api/refund spends OUR prepaid facilitator credits to move somebody
+  // else's money. Correct for our users, and a free settlement service for
+  // anyone else. Three guards bound it, and a mutation sweep found all three
+  // untested: removing any of them left every suite green.
+  const { settleRefund } = await import("../src/refund.ts");
+  const a = "0x1111111111111111111111111111111111111111";
+  const b = "0x2222222222222222222222222222222222222222";
+  const sig = `0x${"11".repeat(65)}`;
+
+  const rejects = async (auth, why) => {
+    const err = await settleRefund(sig, auth).then(
+      () => null,
+      (e) => e,
+    );
+    assert.ok(err, `accepted ${why}`);
+    return err.message;
+  };
+
+  assert.match(
+    await rejects({ from: a, to: a, value: "1000" }, "a refund to the same address"),
+    /same address|no-op/i,
+  );
+  assert.match(await rejects({ from: a, to: b, value: "0" }, "a zero refund"), /positive/i);
+  assert.match(
+    await rejects({ from: a, to: b, value: "999000000" }, "a refund far over the session cap"),
+    /session limit|exceeds/i,
+  );
+  // And the balance rule: this address holds nothing, so any positive amount
+  // fails the full-balance check rather than being partially settled.
+  assert.match(
+    await rejects({ from: a, to: b, value: "1000" }, "a partial refund"),
+    /full balance/i,
+  );
+});
+
+
+await check("every field of PRICE says the same price", async () => {
+  // PRICE carries the same number four ways: micros for the chain, amount for
+  // the x402 packages, usd for arithmetic, display and short for humans. They
+  // agreed when written and nothing kept them agreeing. A mutation sweep set
+  // micros to 50_000 and every suite stayed green: the server would have
+  // charged five cents while the page said one.
+  const { PRICE } = await import("../src/config.ts");
+  assert.equal(PRICE.amount, PRICE.micros.toString(), "amount and micros disagree");
+  assert.equal(Number(PRICE.micros) / 1e6, PRICE.usd, "micros and usd disagree");
+  assert.equal(PRICE.display, `$${PRICE.usd.toFixed(2)}`, "display disagrees with usd");
+  // short is the button label: "1c" for $0.01.
+  assert.equal(PRICE.short, `${Math.round(PRICE.usd * 100)}c`, "short disagrees with usd");
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();

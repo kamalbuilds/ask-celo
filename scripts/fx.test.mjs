@@ -402,6 +402,102 @@ await check("a capped amount says it was capped", async () => {
   assert.match(a, /cap/i, "silently answered about a different amount");
 });
 
+
+await check("TRANSFER_GAS is a real ceiling, checked against the chain", async () => {
+  // Every fee answer multiplies this constant by the live gas price, so a
+  // wrong value is a confident wrong number about money. Two earlier guesses
+  // were both wrong (21,000 is a native send, 65,000 undercounts an ERC-20
+  // transfer). A mutation sweep set it back to 21,000 and every suite stayed
+  // green, so nothing was holding it.
+  const { TRANSFER_GAS } = await import("../src/inference.ts");
+  const { createPublicClient, http, erc20Abi } = await import("viem");
+  const { NETWORKS } = await import("../src/config.ts");
+  const cfg = NETWORKS.mainnet;
+  const client = createPublicClient({
+    chain: cfg.chain,
+    transport: http(cfg.rpc, { retryCount: 3, retryDelay: 300 }),
+  });
+
+  // Estimate from a real holder, found in recent Transfer logs: an account
+  // with no balance reverts and teaches us nothing.
+  const bn = await client.getBlockNumber();
+  const logs = await client
+    .getLogs({
+      address: cfg.usdc,
+      event: {
+        type: "event",
+        name: "Transfer",
+        inputs: [
+          { indexed: true, name: "from", type: "address" },
+          { indexed: true, name: "to", type: "address" },
+          { indexed: false, name: "value", type: "uint256" },
+        ],
+      },
+      fromBlock: bn - 200n,
+      toBlock: bn,
+    })
+    .catch(() => []);
+
+  let measured = null;
+  for (const log of logs.slice(-6)) {
+    const holder = log.args.to;
+    const balance = await client
+      .readContract({ address: cfg.usdc, abi: erc20Abi, functionName: "balanceOf", args: [holder] })
+      .catch(() => 0n);
+    if (balance <= 1n) continue;
+    measured = await client
+      .estimateContractGas({
+        address: cfg.usdc,
+        abi: erc20Abi,
+        functionName: "transfer",
+        args: ["0x2cE408B57f753D54351e4d72C1dC857311eF9749", 1n],
+        account: holder,
+      })
+      .catch(() => null);
+    if (measured) break;
+  }
+  if (measured === null) {
+    console.log("  skip  no funded holder found in recent logs");
+    return;
+  }
+
+  // Our constant must cover a real transfer, and must not be wildly padded:
+  // it is quoted to users as what a transfer costs.
+  assert.ok(
+    BigInt(TRANSFER_GAS) >= measured,
+    `TRANSFER_GAS ${TRANSFER_GAS} is below a measured transfer (${measured})`,
+  );
+  assert.ok(
+    BigInt(TRANSFER_GAS) < measured * 2n,
+    `TRANSFER_GAS ${TRANSFER_GAS} is more than double a measured transfer (${measured})`,
+  );
+});
+
+
+await check("the World Bank figure stays the one we cite", async () => {
+  // The answer names its source and issue, so the number and the citation
+  // must not drift apart. 6.2% was already a release stale when I found it;
+  // a mutation to 1.0% left every suite green.
+  const { answer } = await import("../src/inference.ts");
+  const a = await answer("how much does it cost to send money to india");
+  const cited = Number(/at ([\d.]+)%/.exec(a)?.[1]);
+  assert.equal(cited, 6.36, `the answer cites ${cited}%, not the Issue 54 figure of 6.36%`);
+  assert.match(a, /Issue 54/, "the issue number no longer matches the figure");
+});
+
+await check("a huge amount is still capped", async () => {
+  // Without the cap, "$99999999" renders a comparison in the millions, which
+  // reads as a broken number and is not a remittance anyone makes.
+  const { answer } = await import("../src/inference.ts");
+  const a = await answer("send $99999999 abroad");
+  // Assert the quoted amount, not just that the word "cap" appears: the note
+  // is built from the cap constant and still printed when the clamp itself
+  // was removed, so matching on it passed a mutation that broke the clamp.
+  const quoted = /Sending \$([\d,]+)/.exec(a)?.[1];
+  assert.equal(quoted, "1,000,000", `the amount is not capped: quoted $${quoted}`);
+  assert.match(a, /cap/i, "a capped amount must say it was capped");
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 
 for (const [a, b] of [["cUSD", "cKES"], ["cUSD", "cCOP"], ["cUSD", "cREAL"], ["cEUR", "cKES"]]) {
