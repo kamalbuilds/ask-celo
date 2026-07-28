@@ -13,7 +13,11 @@ const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as 
 const show = (id: string, on = true) => ($(id).hidden = !on);
 
 let wallet: Address | null = null;
-let amount = 1;
+// Matches the pre-selected chip. A mismatch here would charge an amount the
+// user did not pick — the default must come from the markup, not a guess.
+let amount = Number(
+  document.querySelector<HTMLButtonElement>(".choice.is-selected")?.dataset.amount ?? 0.25,
+);
 
 /** The session key pays, so the x402 client is built once around it. */
 const session = loadSessionKey();

@@ -207,5 +207,26 @@ await check("every command and link in the docs exists", async () => {
   }
 });
 
+
+await check("the pre-selected amount is the smallest, and the code agrees", async () => {
+  // Two failure modes. A $1 default asks a first-time buyer to risk four times
+  // more than they need to evaluate the thing — 25c already buys 25 questions.
+  // And if the JS default and the markup disagree, the first tap charges an
+  // amount the user did not choose.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const html = readFileSync(`${root}/web/index.html`, "utf8");
+  const main = readFileSync(`${root}/web/main.ts`, "utf8");
+
+  const amounts = [...html.matchAll(/data-amount="([0-9.]+)"/g)].map((m) => Number(m[1]));
+  const selected = Number(html.match(/class="choice is-selected" data-amount="([0-9.]+)"/)?.[1]);
+  assert.ok(amounts.length > 0, "no amount choices found");
+  assert.equal(selected, Math.min(...amounts), "the default is not the smallest amount offered");
+
+  // The code must read the default from the markup rather than hardcoding it.
+  assert.match(main, /\.choice\.is-selected/, "main.ts hardcodes the default instead of reading it");
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
