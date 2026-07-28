@@ -396,7 +396,13 @@ await check("the docs do not quote a test count that can go stale", async () => 
   const { readFileSync, readdirSync } = await import("node:fs");
   const { fileURLToPath } = await import("node:url");
   const root = fileURLToPath(new URL("..", import.meta.url));
-  const docs = ["README.md", "STATUS.md", ...readdirSync(`${root}/docs`).map((f) => `docs/${f}`)];
+  // Recurse: docs/ gained a subdirectory and the flat readdir crashed with
+  // EISDIR rather than saying so.
+  const walk = (dir, prefix) =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory() ? walk(`${dir}/${e.name}`, `${prefix}${e.name}/`) : `${prefix}${e.name}`,
+    );
+  const docs = ["README.md", "STATUS.md", ...walk(`${root}/docs`, "docs/")];
   const stale = [];
   for (const d of docs) {
     const text = readFileSync(`${root}/${d}`, "utf8");
@@ -418,7 +424,13 @@ await check("the price in the docs is the price the server charges", async () =>
   const { fileURLToPath } = await import("node:url");
   const { PRICE } = await import("../src/config.ts");
   const root = fileURLToPath(new URL("..", import.meta.url));
-  const docs = ["README.md", "STATUS.md", ...readdirSync(`${root}/docs`).map((f) => `docs/${f}`)];
+  // Recurse: docs/ gained a subdirectory and the flat readdir crashed with
+  // EISDIR rather than saying so.
+  const walk = (dir, prefix) =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory() ? walk(`${dir}/${e.name}`, `${prefix}${e.name}/`) : `${prefix}${e.name}`,
+    );
+  const docs = ["README.md", "STATUS.md", ...walk(`${root}/docs`, "docs/")];
   const wrong = [];
   for (const d of docs) {
     for (const m of readFileSync(`${root}/${d}`, "utf8").matchAll(/\$0\.\d+ (per|a) question/g)) {
@@ -555,7 +567,13 @@ await check("every tx hash cited in the docs names its chain", async () => {
   const { readFileSync, readdirSync } = await import("node:fs");
   const { fileURLToPath } = await import("node:url");
   const root = fileURLToPath(new URL("..", import.meta.url));
-  const docs = ["README.md", "STATUS.md", ...readdirSync(`${root}/docs`).map((f) => `docs/${f}`)];
+  // Recurse: docs/ gained a subdirectory and the flat readdir crashed with
+  // EISDIR rather than saying so.
+  const walk = (dir, prefix) =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory() ? walk(`${dir}/${e.name}`, `${prefix}${e.name}/`) : `${prefix}${e.name}`,
+    );
+  const docs = ["README.md", "STATUS.md", ...walk(`${root}/docs`, "docs/")];
   const unlabelled = [];
   for (const d of docs) {
     const lines = readFileSync(`${root}/${d}`, "utf8").split("\n");
@@ -853,6 +871,32 @@ await check("we satisfy the hackathon's own rules", async () => {
       .catch(() => null);
     if (repo) assert.equal(repo.private, false, "the rule requires a public repo");
   }
+});
+
+
+await check("the icon the page and Aigora both point at exists in the build", async () => {
+  // The live site had no favicon at all, and the Aigora registration draft
+  // cited an icon URL that 404'd. Both referenced a file that did not exist.
+  const { existsSync, readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const root = fileURLToPath(new URL("..", import.meta.url));
+
+  const html = readFileSync(`${root}/web/index.html`, "utf8");
+  const href = /<link rel="icon"[^>]*href="([^"]+)"/.exec(html)?.[1];
+  assert.ok(href, "the page declares no icon");
+
+  const source = `${root}/web/public${href}`;
+  assert.ok(existsSync(source), `${href} is referenced but ${source} does not exist`);
+
+  // It must survive the build, or it 404s in production exactly as before.
+  if (existsSync(`${root}/dist`)) {
+    assert.ok(existsSync(`${root}/dist${href}`), `${href} is not copied into dist/`);
+  }
+
+  // Aigora rejects a malformed image URI, so the SVG must parse.
+  const svg = readFileSync(source, "utf8");
+  assert.match(svg, /^<svg|^<\?xml/, "the icon is not an SVG");
+  assert.ok(!svg.includes("<!--") || !/<!--[^>]*--[^>]*-->/.test(svg), "invalid XML comment in the SVG");
 });
 
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);

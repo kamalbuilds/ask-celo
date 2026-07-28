@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Ask">
+  <!-- Palette matches the paper and accent tokens in style.css. -->
+  <rect width="64" height="64" rx="14" fill="#fbfaf5"/>
+  <!-- A question mark, because that is the product: one question, one cent. -->
+  <path d="M23 24a9 9 0 1 1 13.5 7.8c-2.6 1.5-4 3.2-4 5.7v1.5"
+        fill="none" stroke="#2f6f4f" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="32.5" cy="47.5" r="3.6" fill="#2f6f4f"/>
+</svg>
