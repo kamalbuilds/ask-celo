@@ -1191,6 +1191,46 @@ await check("the configured asset really is USDC, and the adapter really is not"
     .readContract({ address: cfg.usdcAdapter, abi: erc20Abi, functionName: "symbol" })
     .catch(() => null);
   assert.equal(adapterSymbol, null, "the fee adapter answers symbol(): it has been set to a token");
+
+  // Stronger than "not a token": Celo's fee adapters expose the token they
+  // wrap, so the pairing itself is checkable. A plausible-looking adapter for
+  // the wrong token would let gas be charged in something the user does not
+  // hold, and every top-up would fail with an error about a currency nobody
+  // mentioned.
+  const { parseAbi } = await import("viem");
+  const adapted = await client
+    .readContract({
+      address: cfg.usdcAdapter,
+      abi: parseAbi(["function adaptedToken() view returns (address)"]),
+      functionName: "adaptedToken",
+    })
+    .catch(() => null);
+  // Not `if (adapted)`: a wrong address usually has no code at all, so the
+  // read returns null and an optional assertion skips exactly when it matters.
+  // A mutation swapping in the testnet adapter passed for that reason.
+  assert.ok(
+    adapted,
+    "the fee adapter does not expose adaptedToken(): it is not a Celo fee adapter on this network",
+  );
+  assert.equal(
+    adapted.toLowerCase(),
+    cfg.usdc.toLowerCase(),
+    `the fee adapter wraps ${adapted}, not the USDC we charge in`,
+  );
+
+  // And the asset must be one the facilitator will actually settle.
+  const published = await fetch("https://x402.celo.org/api/config", {
+    signal: AbortSignal.timeout(20_000),
+  })
+    .then((r) => r.json())
+    .catch(() => null);
+  if (published?.tokens?.mainnet) {
+    const known = published.tokens.mainnet.map((t) => t.address.toLowerCase());
+    assert.ok(
+      known.includes(cfg.usdc.toLowerCase()),
+      `the facilitator does not list our asset: it settles ${known.join(", ")}`,
+    );
+  }
   assert.notEqual(
     cfg.usdcAdapter.toLowerCase(),
     cfg.usdc.toLowerCase(),
