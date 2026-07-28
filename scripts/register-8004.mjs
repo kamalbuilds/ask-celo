@@ -14,19 +14,15 @@
  */
 import { createWalletClient, createPublicClient, http, getAddress } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { celo, celoSepolia } from "viem/chains";
 
-const MAINNET = process.env.X402_NETWORK === "mainnet";
-const CHAIN = MAINNET ? celo : celoSepolia;
-const RPC = MAINNET ? "https://forno.celo.org" : "https://forno.celo-sepolia.celo-testnet.org";
-const REGISTRY = getAddress(
-  MAINNET
-    ? "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432"
-    : "0x8004A818BFB912233c491871b3d84c89A494BD9e",
-);
-const USDC_ADAPTER = MAINNET
-  ? "0x2F25deB3848C207fc8E0c34035B3Ba7fC157602B"
-  : "0x4822e58de6f5e485eF90df51C41CE01721331dC0";
+// Imported, not restated. Three files kept private copies of this table and
+// one of them spent a day checking the wrong chain.
+const { CFG, NETWORK } = await import("../src/config.ts");
+const MAINNET = NETWORK === "mainnet";
+const CHAIN = CFG.chain;
+const RPC = CFG.rpc;
+const REGISTRY = getAddress(CFG.registry8004);
+const USDC_ADAPTER = CFG.usdcAdapter;
 
 const dryRun = process.argv.includes("--dry-run");
 const domain = process.env.AGENT_DOMAIN;
@@ -113,6 +109,23 @@ const abi = [
     outputs: [{ name: "agentId", type: "uint256" }],
   },
 ];
+
+// Simulate before spending. A wrong registry address or a stale ABI would
+// otherwise surface as a reverted transaction that already cost gas, and this
+// runs once against a wallet the user funded by hand.
+try {
+  await pub.simulateContract({
+    address: REGISTRY,
+    abi,
+    functionName: "register",
+    args: [agentURI],
+    account: account.address,
+  });
+} catch (err) {
+  throw new Error(
+    `registration would revert, so nothing was sent: ${err.shortMessage ?? err.message}`,
+  );
+}
 
 const hash = await wallet.writeContract({
   address: REGISTRY,

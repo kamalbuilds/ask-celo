@@ -668,5 +668,39 @@ await check("no source file restates a URL that config already owns", async () =
   assert.deepEqual(offenders, [], `these restate a URL config owns:\n  ${offenders.join("\n  ")}`);
 });
 
+
+await check("the ERC-8004 registration would actually succeed", async () => {
+  // The registry address and ABI had never been exercised: go-live would have
+  // spent gas from a hand-funded wallet to find out. Simulated against Celo
+  // mainnet, which proves both without sending anything.
+  const { createPublicClient, http } = await import("viem");
+  const { NETWORKS } = await import("../src/config.ts");
+  const cfg = NETWORKS.mainnet;
+  const client = createPublicClient({
+    chain: cfg.chain,
+    transport: http(cfg.rpc, { retryCount: 3, retryDelay: 300 }),
+  });
+  const abi = [
+    {
+      type: "function",
+      name: "register",
+      stateMutability: "nonpayable",
+      inputs: [{ name: "agentURI", type: "string" }],
+      outputs: [{ name: "agentId", type: "uint256" }],
+    },
+  ];
+  const res = await client
+    .simulateContract({
+      address: cfg.registry8004,
+      abi,
+      functionName: "register",
+      args: ["ipfs://bafkreiexampleexampleexampleexampleexampleexampleexampleexam"],
+      account: "0xE626fC73E7FcE36a2371D7B4f3482Aed17308A77",
+    })
+    .catch((e) => ({ error: e.shortMessage ?? e.message }));
+  assert.ok(!res.error, `registration would revert: ${res.error}`);
+  assert.ok(typeof res.result === "bigint", "registry returned no agent id");
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();

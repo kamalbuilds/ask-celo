@@ -45,6 +45,8 @@ export const NETWORKS = {
     facilitator: "https://api.x402.celo.org",
     usdc: "0xcebA9300f2b948710d2653dD7B07f33A8B32118C",
     usdcAdapter: "0x2F25deB3848C207fc8E0c34035B3Ba7fC157602B", // feeCurrency, NOT the token
+    // ERC-8004 identity registry, used by scripts/register-8004.mjs.
+    registry8004: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
     explorer: "https://celo.blockscout.com",
   },
   testnet: {
@@ -54,6 +56,7 @@ export const NETWORKS = {
     facilitator: "https://api.x402.sepolia.celo.org",
     usdc: "0x01C5C0122039549AD1493B8220cABEdD739BC44E",
     usdcAdapter: "0x4822e58de6f5e485eF90df51C41CE01721331dC0",
+    registry8004: "0x8004A818BFB912233c491871b3d84c89A494BD9e",
     explorer: "https://celo-sepolia.blockscout.com",
   },
 } as const;
