@@ -869,7 +869,14 @@ await check("we satisfy the hackathon's own rules", async () => {
     })
       .then((r) => r.json())
       .catch(() => null);
-    if (repo) assert.equal(repo.private, false, "the rule requires a public repo");
+    // A rate-limited response has no `private` field at all. Treating that as
+    // "private" turns their throttle into our failure, which is the same
+    // false-alarm shape as a flaky RPC.
+    if (repo && typeof repo.private === "boolean") {
+      assert.equal(repo.private, false, "the rule requires a public repo");
+    } else if (repo?.message) {
+      console.log(`  note  github says: ${repo.message.slice(0, 60)}`);
+    }
   }
 });
 
@@ -1075,6 +1082,98 @@ await check("every field of PRICE says the same price", async () => {
   assert.equal(PRICE.display, `$${PRICE.usd.toFixed(2)}`, "display disagrees with usd");
   // short is the button label: "1c" for $0.01.
   assert.equal(PRICE.short, `${Math.round(PRICE.usd * 100)}c`, "short disagrees with usd");
+});
+
+
+await check("the configured asset really is USDC, and the adapter really is not", async () => {
+  // A mutation swapped our USDC address for cUSD and every suite stayed
+  // green. That would be fatal in a specific way: Mento's StableTokenV2
+  // implements EIP-2612 permit, not EIP-3009 transferWithAuthorization, so
+  // the facilitator cannot settle it at all. Every payment would fail after
+  // the user topped up.
+  //
+  // The adapter is the opposite trap: it is a feeCurrency, NOT a token.
+  // Sending it as the asset, or the token as the feeCurrency, both look
+  // plausible in a diff and neither is caught by types.
+  const { createPublicClient, http, erc20Abi } = await import("viem");
+  const { NETWORKS } = await import("../src/config.ts");
+  const cfg = NETWORKS.mainnet;
+  const client = createPublicClient({
+    chain: cfg.chain,
+    transport: http(cfg.rpc, { retryCount: 3, retryDelay: 300 }),
+  });
+
+  const symbol = await client
+    .readContract({ address: cfg.usdc, abi: erc20Abi, functionName: "symbol" })
+    .catch(() => null);
+  assert.equal(symbol, "USDC", `the configured asset reports "${symbol}", not USDC`);
+
+  const decimals = await client
+    .readContract({ address: cfg.usdc, abi: erc20Abi, functionName: "decimals" })
+    .catch(() => null);
+  assert.equal(decimals, 6, `USDC decimals are ${decimals}: every price would be off by orders`);
+
+  // The adapter is not an ERC-20. If symbol() starts answering, someone has
+  // pointed feeCurrency at a token.
+  const adapterSymbol = await client
+    .readContract({ address: cfg.usdcAdapter, abi: erc20Abi, functionName: "symbol" })
+    .catch(() => null);
+  assert.equal(adapterSymbol, null, "the fee adapter answers symbol(): it has been set to a token");
+  assert.notEqual(
+    cfg.usdcAdapter.toLowerCase(),
+    cfg.usdc.toLowerCase(),
+    "feeCurrency and the asset are the same address",
+  );
+});
+
+
+await check("a settled payment attempts a receipt", async () => {
+  // The receipt hook is how a settlement becomes on-chain proof of revenue.
+  // Deleting the recordReceipt call left every suite green: sales would keep
+  // working while attribution quietly stopped, which is the exact failure the
+  // health endpoint's receipt stats exist to surface.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const app = readFileSync(fileURLToPath(new URL("../src/app.ts", import.meta.url)), "utf8")
+    .replace(/^\s*\/\/.*$/gm, "");
+  assert.match(app, /recordReceipt\(/, "nothing records a receipt when a payment settles");
+
+  // It must run on the settlement path, after the middleware, not inside the
+  // handler where the payment-response header does not exist yet. That was a
+  // real bug once: the hook ran somewhere the header was always null.
+  // Anchor on the hook itself, not on the import of paymentMiddleware: the
+  // first occurrence of that name is the import at the top of the file, so
+  // the slice was empty and the check failed for the wrong reason.
+  const hookStart = app.indexOf('app.use("/api/ask"');
+  const hook = app.slice(hookStart, app.indexOf("app.use(paymentMiddleware"));
+  assert.match(hook, /payment-response/, "the receipt hook does not read the settlement header");
+  assert.match(hook, /recordReceipt\(/, "the receipt hook does not record");
+
+  // And the stats must be surfaced, or a silent failure stays silent.
+  const { receiptStats } = await import("../src/receipts.ts");
+  for (const k of ["attempted", "recorded", "failed"]) {
+    assert.ok(k in receiptStats, `receiptStats has no ${k}, so failures are invisible`);
+  }
+});
+
+await check("the refund endpoint still rejects every incomplete authorization", async () => {
+  // Weakening the input guard left every suite green: one existing check only
+  // sent an empty body, so dropping individual fields went unnoticed.
+  for (const body of [
+    {},
+    { signature: "0x00" },
+    { signature: "0x00", authorization: {} },
+    { signature: "0x00", authorization: { from: "0x1" } },
+    { signature: "0x00", authorization: { from: "0x1", to: "0x2" } },
+    { authorization: { from: "0x1", to: "0x2", value: "1" } },
+  ]) {
+    const res = await fetch(url("/api/refund"), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    assert.equal(res.status, 400, `accepted an incomplete refund: ${JSON.stringify(body)}`);
+  }
 });
 
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
