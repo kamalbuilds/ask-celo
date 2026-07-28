@@ -228,5 +228,34 @@ await check("the pre-selected amount is the smallest, and the code agrees", asyn
   assert.match(main, /\.choice\.is-selected/, "main.ts hardcodes the default instead of reading it");
 });
 
+
+await check("an empty question is refused before it costs anything", async () => {
+  // The handler returns early on an empty box, so no payment is attempted.
+  // Worth asserting: the server also refuses, so a client bug cannot turn
+  // whitespace into a charge.
+  const res = await fetch(url("/api/ask"), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ q: "   " }),
+  });
+  // 402 (payment first) or 400 (rejected) are both fine. A 200 would mean
+  // paying for nothing.
+  assert.notEqual(res.status, 200, "an empty question returned an answer");
+});
+
+await check("the answered question is cleared from the box", async () => {
+  // Left in place, a second question starts with manual deletion and a repeat
+  // tap re-charges for something already on screen.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const main = readFileSync(fileURLToPath(new URL("../web/main.ts", import.meta.url)), "utf8");
+  const afterAnswer = main.slice(main.indexOf('$("answer").textContent = answer'));
+  assert.match(
+    afterAnswer.slice(0, 400),
+    /\("q"\)\.value = ""/,
+    "the question is not cleared after it is answered",
+  );
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();

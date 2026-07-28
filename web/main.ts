@@ -190,6 +190,11 @@ $("ask-btn").addEventListener("click", async () => {
     show("answer");
     setStatus("ask-status", "");
 
+    // Clear the box. The answered question sitting there means a second one
+    // starts with manual deletion, and a repeat tap re-asks and re-charges for
+    // something already on screen.
+    $<HTMLTextAreaElement>("q").value = "";
+
     const receipt = res.headers.get("payment-response");
     if (receipt) {
       const decoded = JSON.parse(atob(receipt));
