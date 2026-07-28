@@ -2511,10 +2511,18 @@ await check("the agent contribution notes describe things that are actually true
       .replace(/\/\*[\s\S]*?\*\//g, "")
       .replace(/^\s*\/\/.*$/gm, "");
 
+  // Count what actually got checked. Each block below is conditional on the
+  // notes still making that claim, which is right — a removed claim needs no
+  // verification. But if every claim were reworded at once, this check would
+  // pass while verifying nothing, so require that most of them still land.
+  let verified = 0;
+
   if (/request failed \(400\)/.test(notes)) {
+    verified++;
     assert.match(strip("web/main.ts"), /body\.hint/, "notes claim the hint is rendered; it is not");
   }
   if (/disabled at a zero balance/.test(notes)) {
+    verified++;
     assert.match(
       strip("web/main.ts"),
       /ask-btn"\)\.disabled = false/,
@@ -2525,15 +2533,23 @@ await check("the agent contribution notes describe things that are actually true
     assert.doesNotMatch(strip("src/app.ts"), /raw\s*\.\s*clone\(\)/, "notes claim raw.clone is gone; it is not");
   }
   if (/sessionStorage/.test(notes)) {
+    verified++;
     assert.doesNotMatch(strip("src/session.ts"), /sessionStorage/, "notes claim the key is in localStorage; it is not");
   }
   if (/EIP-2612, not EIP-3009/.test(notes)) {
+    verified++;
     assert.match(
       strip("scripts/app.test.mjs"),
       /symbol, "USDC"/,
       "notes claim the asset is verified against the chain; nothing checks it",
     );
   }
+
+  assert.ok(
+    verified >= 4,
+    `only ${verified} of the notes' claims were checkable; the section was rewritten ` +
+      "and this check is now verifying almost nothing",
+  );
 });
 
 
@@ -2552,16 +2568,28 @@ await check("JUDGMENT's stated weakness is the one that actually exists", async 
   const judgment = readFileSync(`${root}/docs/JUDGMENT.md`, "utf8");
   const { canAnswer } = await import("../src/inference.ts");
 
+  // Same counting guard as the contribution notes: each block is rightly
+  // conditional on the claim still being made, but rewriting the section
+  // should not silently turn this into a no-op.
+  let checked = 0;
+
   // If it claims the catalogue leads with FX and remittance, that must hold.
-  if (/what a dollar is worth in shillings/i.test(judgment)) {
+  // Markdown wraps: matching a phrase that spans a line break needs \s+ for
+  // the spaces. My first version used a literal space, never matched, and the
+  // branch silently never ran — the counting guard is what surfaced that.
+  if (/what a dollar is worth in\s+shillings/i.test(judgment)) {
+    checked++;
     assert.ok(canAnswer("what is a dollar worth in shillings"), "the FX claim is stale");
     assert.ok(canAnswer("what does it cost to send money home"), "the remittance claim is stale");
   }
   // If it claims an unsupported corridor is refused free, that must hold too.
   if (/naira or cedi question is refused/i.test(judgment)) {
+    checked++;
     assert.equal(canAnswer("naira to dollars"), false, "naira is answerable; the stated weakness is wrong");
     assert.equal(canAnswer("dollar to cedis"), false, "cedi is answerable; the stated weakness is wrong");
   }
+  assert.ok(checked >= 2, `only ${checked} of JUDGMENT's stated claims were checkable`);
+
   // And it must not still be arguing the old catalogue is the weak point.
   assert.doesNotMatch(
     judgment,
