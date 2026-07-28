@@ -18,6 +18,15 @@ const { createApp } = await import("../src/app.ts");
 const { PRICE, CFG } = await import("../src/config.ts");
 
 // Port 0 lets the OS pick a free one, so this never collides with a dev server.
+
+// The live URL lives in .submission.json, which is what readiness, scoring and
+// the deploy all read. Restating it in a test is the same duplicate-constant
+// bug this suite checks for elsewhere, and the check caught me writing it.
+const { readFileSync: _rf } = await import("node:fs");
+const { fileURLToPath: _fu } = await import("node:url");
+const LIVE_URL = JSON.parse(
+  _rf(_fu(new URL("../.submission.json", import.meta.url)), "utf8"),
+).liveUrl;
 const server = serve({ fetch: createApp().fetch, port: 0 });
 const { port } = server.address();
 const url = (p) => `http://127.0.0.1:${port}${p}`;
@@ -87,7 +96,7 @@ await check("the browser can read the headers it needs", async () => {
   // the receipt, and the payment loop silently cannot complete.
   const res = await fetch(url("/api/ask"), {
     method: "POST",
-    headers: { "content-type": "application/json", origin: "https://ask-celo.vercel.app" },
+    headers: { "content-type": "application/json", origin: LIVE_URL },
     body: JSON.stringify({ q: "x" }),
   });
   const exposed = res.headers.get("access-control-expose-headers") ?? "";
@@ -102,6 +111,16 @@ await check("every browser-facing env var has a VITE_ twin in go-live", async ()
   const { readFileSync } = await import("node:fs");
   const goLive = readFileSync(new URL("./go-live.sh", import.meta.url), "utf8");
   const { BROWSER_KEYS } = await import("../src/config.ts");
+  // Naming the keys explicitly: iterating BROWSER_KEYS alone means deleting an
+  // entry makes this check vacuously pass, which is how a mutation that
+  // dropped ATTRIBUTION_TAG stayed green. Every browser-facing variable must
+  // be in the list AND set by go-live.
+  for (const required of ["X402_NETWORK", "ATTRIBUTION_TAG"]) {
+    assert.ok(
+      BROWSER_KEYS.includes(required),
+      `${required} is browser-facing but missing from BROWSER_KEYS, so go-live will not set its VITE_ twin`,
+    );
+  }
   for (const key of BROWSER_KEYS) {
     assert.ok(goLive.includes(`VITE_${key}=`), `go-live.sh never sets VITE_${key}`);
   }
@@ -849,7 +868,7 @@ await check("we satisfy the hackathon's own rules", async () => {
 
   if (text.includes("mainnet only") || text.includes("celo-mainnet")) {
     // The live service must actually be on mainnet.
-    const health = await fetch("https://ask-celo.vercel.app/api/health", {
+    const health = await fetch(`${LIVE_URL}/api/health`, {
       signal: AbortSignal.timeout(20_000),
     })
       .then((r) => r.json())
@@ -1256,6 +1275,74 @@ await check("every button that moves money disables itself while it works", asyn
     // And it must come back, or one failure bricks the control forever.
     assert.match(handler, /disabled = false/, `${id} is never re-enabled`);
     assert.match(handler, /finally\s*\{/, `${id} does not re-enable in a finally block`);
+  }
+});
+
+
+await check("the network flag means what it says", async () => {
+  // Inverting the comparison left every suite green: the server would load
+  // mainnet config while reporting testnet, or the reverse. Every address,
+  // the facilitator, and the CAIP id all follow this one boolean.
+  const { NETWORK, CFG, NETWORKS } = await import("../src/config.ts");
+  assert.equal(CFG.caip, NETWORKS[NETWORK].caip, "CFG does not match the reported NETWORK");
+  // Comparing config to itself stays true when the flag is inverted, which is
+  // exactly what a mutation proved. Assert against the env var directly:
+  // X402_NETWORK=mainnet must select mainnet, and anything else must not.
+  const declared = process.env.X402_NETWORK;
+  assert.equal(
+    NETWORK,
+    declared === "mainnet" ? "mainnet" : "testnet",
+    `X402_NETWORK=${declared} selected ${NETWORK}`,
+  );
+  // And the two networks must not be confusable: distinct chain ids.
+  assert.notEqual(NETWORKS.mainnet.caip, NETWORKS.testnet.caip);
+  // Derive from viem's chain definitions rather than restating the ids: the
+  // duplicate-constant check flagged my literals, correctly, while I was
+  // writing a test about config being the single owner.
+  for (const net of ["mainnet", "testnet"]) {
+    assert.equal(
+      NETWORKS[net].caip,
+      `eip155:${NETWORKS[net].chain.id}`,
+      `${net} caip disagrees with its chain id`,
+    );
+  }
+  // The live service must agree with its own config.
+  const health = await fetch(`${LIVE_URL}/api/health`, {
+    signal: AbortSignal.timeout(20_000),
+  })
+    .then((r) => r.json())
+    .catch(() => null);
+  if (health) {
+    assert.equal(
+      health.caip,
+      NETWORKS[health.network].caip,
+      `health reports ${health.network} with caip ${health.caip}`,
+    );
+  }
+});
+
+await check("the API key is validated at startup, not at first sale", async () => {
+  // Without X402_API_KEY the facilitator rejects settlement with a stack trace
+  // naming neither the variable nor the fix, and it happens on a customer's
+  // first payment rather than on boot. Removing the guard stayed green.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const app = readFileSync(fileURLToPath(new URL("../src/app.ts", import.meta.url)), "utf8")
+    .replace(/^\s*\/\/.*$/gm, "");
+  assert.match(app, /required\("X402_API_KEY"/, "the API key is not validated at startup");
+  assert.match(app, /startsWith\("x402_"\)/, "the API key format is not checked");
+});
+
+await check("the currency list the answer quotes is the list it can serve", async () => {
+  // SUPPORTED_CURRENCIES is named in a refusal, so it is a promise. Renaming
+  // it stayed green, which means nothing tied the prose to the oracle table.
+  const { SUPPORTED_CURRENCIES, MENTO_MAINNET } = await import("../src/inference.ts");
+  for (const symbol of Object.keys(MENTO_MAINNET)) {
+    const plain = { cUSD: "dollar", cEUR: "euro", cKES: "shilling", cCOP: "peso", cREAL: "reai" }[symbol];
+    assert.ok(
+      SUPPORTED_CURRENCIES.toLowerCase().includes(plain),
+      `${symbol} is in the oracle table but ${plain} is not named in SUPPORTED_CURRENCIES`,
+    );
   }
 });
 
