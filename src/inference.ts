@@ -101,6 +101,13 @@ export const SORTED_ORACLES = "0xefB84935239dAcdecF7c5bA76d8dE40b077B7b33";
 const ORACLE_ABI = [
   {
     type: "function",
+    name: "medianTimestamp",
+    stateMutability: "view",
+    inputs: [{ name: "token", type: "address" }],
+    outputs: [{ name: "", type: "uint256" }],
+  },
+  {
+    type: "function",
     name: "medianRate",
     stateMutability: "view",
     inputs: [{ name: "token", type: "address" }],
@@ -142,6 +149,31 @@ async function ratePerCelo(token: string) {
     args: [getAddress(token)],
   });
   return Number(num) / Number(den);
+}
+
+/**
+ * How long ago the oracle for a token was last updated, in hours.
+ *
+ * The product sells these rates as read live. That is true of the read, and
+ * not always of the feed: cUSD refreshes every few minutes while the local
+ * currencies can sit ten hours old. Selling a ten-hour-old rate as live is
+ * the kind of claim about money this codebase keeps having to fix, so the
+ * answer says the age when it is material.
+ */
+async function oracleAgeHours(token: string): Promise<number | null> {
+  const t = await mainnetClient()
+    .readContract({
+      address: getAddress(SORTED_ORACLES),
+      abi: ORACLE_ABI,
+      functionName: "medianTimestamp",
+      args: [getAddress(token)],
+    })
+    .catch(() => null);
+  // 0 means the oracle has never reported for this token, which is a stronger
+  // statement than "stale" and must not be rendered as 495,898 hours old.
+  if (t === null) return null;
+  if (t === 0n) return Infinity;
+  return (Date.now() / 1000 - Number(t)) / 3600;
 }
 
 /**
@@ -197,15 +229,28 @@ export function fxPair(
   return pair[0] === pair[1] ? null : pair;
 }
 
+/** A note when the older of two oracle feeds is stale enough to matter. */
+function staleNote(a: number | null, b: number | null): string | null {
+  const oldest = Math.max(a ?? 0, b ?? 0);
+  if (oldest === Infinity)
+    return ` One side of this pair has no oracle history on-chain, so treat the rate as indicative rather than current.`;
+  if (oldest < 2) return null;
+  return oldest > 24
+    ? ` This pair's oracle has not updated in over a day, so treat it as indicative rather than current.`
+    : ` This pair's oracle last updated about ${Math.round(oldest)}h ago.`;
+}
+
 async function fxAnswer(q: string) {
   const pair = fxPair(q);
   // Unreachable through /api/ask, which refuses when fxPair returns null.
   if (!pair) return SUGGESTIONS;
   const [a, b] = pair;
 
-  const [rateA, rateB] = await Promise.all([
+  const [rateA, rateB, ageA, ageB] = await Promise.all([
     ratePerCelo(MENTO_MAINNET[a]),
     ratePerCelo(MENTO_MAINNET[b]),
+    oracleAgeHours(MENTO_MAINNET[a]),
+    oracleAgeHours(MENTO_MAINNET[b]),
   ]);
 
   // Both are quoted per CELO, so the ratio cancels CELO out.
@@ -215,6 +260,10 @@ async function fxAnswer(q: string) {
     `from Mento's on-chain oracle (${CURRENCY[a]} to ${CURRENCY[b]}). ` +
     `This is the rate the chain settles at, so a swap on Celo executes near it ` +
     `rather than at a counter's posted spread.`
+    // Say when the feed is old. The read is live; the feed is not always, and
+    // "live" about a ten-hour-old rate is exactly the kind of money claim
+    // nothing had measured.
+    + (staleNote(ageA, ageB) ?? "")
   );
 }
 

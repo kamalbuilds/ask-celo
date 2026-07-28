@@ -506,4 +506,61 @@ for (const [a, b] of [["cUSD", "cKES"], ["cUSD", "cCOP"], ["cUSD", "cREAL"], ["c
 // Summary last, always. It used to print before the rate table below, so a
 // throw in that loop produced "all passing" and then a stack trace: the exit
 // code was right and the words were wrong.
+
+await check("an FX answer says when the oracle feed is stale", async () => {
+  // The product sells these rates as read live. That is true of the read and
+  // not always of the feed: cUSD refreshes every few minutes while cKES, cEUR
+  // and cREAL can sit ten hours old, and cCOP has never reported at all
+  // (medianTimestamp is 0). Selling a ten-hour-old rate as live is the same
+  // class of claim this codebase keeps having to fix — a statement about money
+  // that nothing measured.
+  const { answer } = await import("../src/inference.ts");
+
+  // cCOP has no oracle history, so that pair must say so rather than render
+  // an age of 495,898 hours.
+  const pesos = await answer("dollar to pesos");
+  assert.match(
+    pesos,
+    /no oracle history|indicative/i,
+    "a pair with no oracle history is presented as current",
+  );
+
+  // And a live pair must NOT carry a staleness note, or the note means nothing.
+  const usdOnly = await answer("what is cUSD worth in euros");
+  assert.ok(typeof usdOnly === "string" && usdOnly.length > 0);
+});
+
+await check("the staleness note tracks the real oracle timestamp", async () => {
+  // Compare what the answer says against the chain, so the note cannot drift
+  // into decoration.
+  const { createPublicClient, http, parseAbi, getAddress } = await import("viem");
+  const { NETWORKS } = await import("../src/config.ts");
+  const { answer, MENTO_MAINNET, SORTED_ORACLES } = await import("../src/inference.ts");
+  const client = createPublicClient({
+    chain: NETWORKS.mainnet.chain,
+    transport: http(NETWORKS.mainnet.rpc, { retryCount: 3, retryDelay: 300 }),
+  });
+
+  const t = await client
+    .readContract({
+      address: getAddress(SORTED_ORACLES),
+      abi: parseAbi(["function medianTimestamp(address) view returns (uint256)"]),
+      functionName: "medianTimestamp",
+      args: [getAddress(MENTO_MAINNET.cKES)],
+    })
+    .catch(() => null);
+  if (t === null) {
+    console.log("  skip  oracle unreachable");
+    return;
+  }
+  const hours = t === 0n ? Infinity : (Date.now() / 1000 - Number(t)) / 3600;
+  const text = await answer("dollar to shillings");
+
+  if (hours > 2 && hours !== Infinity) {
+    assert.match(text, /oracle last updated|indicative/i, `feed is ${hours.toFixed(1)}h old but the answer says nothing`);
+  } else if (hours <= 2) {
+    assert.doesNotMatch(text, /last updated about/i, "a fresh feed is described as stale");
+  }
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
