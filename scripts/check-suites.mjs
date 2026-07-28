@@ -21,6 +21,7 @@ if (suites.length === 0) {
   process.exit(1);
 }
 
+const startedAt = Date.now();
 let total = 0;
 let failed = false;
 
@@ -48,5 +49,17 @@ for (const suite of suites) {
   total += count;
 }
 
-console.log(`\n${suites.length} suites, ${total} checks`);
+console.log(`\n${suites.length} suites, ${total} checks in ${((Date.now() - startedAt) / 1000).toFixed(0)}s`);
+
+// A suite slow enough to skip stops being run, and this is the first command a
+// reviewer executes. Most of the time is real network verification against
+// production and the chain, which is the point — but it should not creep.
+const SECONDS_BUDGET = 120;
+const elapsed = (Date.now() - startedAt) / 1000;
+if (elapsed > SECONDS_BUDGET) {
+  console.log(
+    `\n! ${elapsed.toFixed(0)}s exceeds the ${SECONDS_BUDGET}s budget. Cache a repeated fetch or move a slow check.`,
+  );
+  failed = true;
+}
 process.exit(failed ? 1 : 0);
