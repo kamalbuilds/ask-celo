@@ -202,18 +202,20 @@ unavailable the copy says so rather than guessing in the user's favour.
 
 ## Track 2 by raw count is not winnable, measured
 
-Re-scanned the facilitator late on day one of building (it has run since Jul 1).
+Re-scanned the facilitator four times across day one (it has run since Jul 1).
+The figures below are a snapshot; what matters is the rate, which has held.
 
 | | |
 |---|---|
-| Total settlements | 155,721, up ~7,600 in about 4.5 hours |
+| Total settlements | 148,118 → 155,721 → 158,958 → 162,629 in one working day |
 | Rate | ~1,690 per hour across all builders |
 | Top three wallets | **88%** of recent settlements |
 | Leading wallet alone | ~536/hour, ~12,900/day |
 | Projected leader by Aug 3 | ~77,000 settlements |
 | Our ceiling | **500** — one per prepaid credit |
 
-That is 0.65% of the leader, and topping up credits only buys more of a race
+Roughly 14,500 settlements added while this was being built. Our ceiling is
+0.65% of the leader, and topping up credits only buys more of a race
 that is decided by whoever loops fastest. The leaders are paying themselves
 $0.001 per call; the volume is real on-chain but the demand is not.
 

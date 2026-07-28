@@ -2993,5 +2993,45 @@ await check("the credit balance quoted in the docs is the real one", async () =>
   );
 });
 
+
+await check("the settlement figures we cite are still directionally true", async () => {
+  // The competitive argument rests on the facilitator growing far faster than
+  // our 500-credit ceiling. Those figures are a dated snapshot, which is fine
+  // — but if growth stalled, the whole "a count race is not winnable"
+  // conclusion would need revisiting rather than quietly standing.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const judgment = readFileSync(fileURLToPath(new URL("../docs/JUDGMENT.md", import.meta.url)), "utf8");
+
+  // Any six-figure count, not a hand-picked prefix range: pinning 14x-18x
+  // meant a mutation citing 999,999 sailed through, which is exactly the
+  // impossible-claim case this exists to catch.
+  const cited = [...judgment.matchAll(/\b(\d{3},\d{3})\b/g)].map((m) =>
+    Number(m[1].replace(/,/g, "")),
+  );
+  assert.ok(cited.length >= 2, "JUDGMENT no longer cites a settlement series");
+
+  const counters = await fetch(
+    "https://celo.blockscout.com/api/v2/addresses/0x0d74D5Cefd2e7F24E623330ebE3d8D4cB45fFB48/counters",
+    { signal: AbortSignal.timeout(20_000) },
+  )
+    .then((r) => r.json())
+    .catch(() => null);
+  if (!counters?.transactions_count) {
+    console.log("  skip  explorer unavailable");
+    return;
+  }
+  const now = Number(counters.transactions_count);
+
+  // Every cited figure must be in the past, and the latest must not be wildly
+  // stale: if the facilitator has moved by more than our entire ceiling since
+  // we last looked, the snapshot is old enough to re-take.
+  const latest = Math.max(...cited);
+  assert.ok(
+    now >= latest,
+    `we cite ${latest} settlements but the chain reports ${now}: the series is wrong, not just old`,
+  );
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
