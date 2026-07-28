@@ -6,6 +6,7 @@ import { ExactEvmScheme } from "@x402/evm/exact/server";
 import { HTTPFacilitatorClient } from "@x402/core/server";
 import { getAddress } from "viem";
 import { NETWORK, CFG, PRICE } from "./config.js";
+import { agentDocument } from "./agent.js";
 import { ABOUT_MATCH, aboutAnswer, answer, canAnswer, SUGGESTIONS, TOPIC_EXAMPLES } from "./inference.js";
 import { recordReceipt, receiptStats, receiptsEnabled } from "./receipts.js";
 import { settleRefund } from "./refund.js";
@@ -247,21 +248,7 @@ export function createApp() {
   // because the CID is the integrity check, but this is the fallback when no
   // pinning key is available, and a URI that 404s would mint an identity
   // nobody can resolve.
-  app.get("/agent.json", (c) =>
-    c.json({
-      type: "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
-      name: "Ask",
-      description:
-        "Answers questions for a cent each, paid over x402 on Celo. Brings MiniPay " +
-        "wallets onto x402 with a device-local session key, since MiniPay implements " +
-        "neither personal_sign nor eth_signTypedData and cannot sign EIP-3009 directly.",
-      services: [
-        { name: "web", endpoint: "https://ask-celo.vercel.app" },
-        { name: "x402", endpoint: "https://ask-celo.vercel.app/api/ask", version: "2" },
-      ],
-      supportedTrust: ["reputation"],
-    }),
-  );
+  app.get("/agent.json", (c) => c.json(agentDocument("https://ask-celo.vercel.app")));
 
   app.get("/api/health", (c) =>
     c.json({

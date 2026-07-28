@@ -30,19 +30,12 @@ if (!domain) throw new Error("AGENT_DOMAIN not set (e.g. https://ask.example.com
 
 // Current EIP-8004 registration shape. The three things 8004scan flags are
 // `type: "Agent"`, an `endpoints` array, and `url` per entry — all fixed here.
-const metadata = {
-  type: "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
-  name: process.env.AGENT_NAME || "Ask",
-  description:
-    "Answers questions for a cent each, paid over x402 on Celo. Brings MiniPay " +
-    "wallets onto x402 with a device-local session key, since MiniPay implements " +
-    "neither personal_sign nor eth_signTypedData and cannot sign EIP-3009 directly.",
-  services: [
-    { name: "web", endpoint: domain },
-    { name: "x402", endpoint: `${domain}/api/ask`, version: "2" },
-  ],
-  supportedTrust: ["reputation"],
-};
+// Imported, not restated. This document is also served at /agent.json as the
+// fallback URI, and the registry points at that URL: two hand-maintained
+// copies would let the on-chain identity describe something the service does
+// not.
+const { agentDocument } = await import("../src/agent.ts");
+const metadata = agentDocument(domain);
 
 function validate(m) {
   const problems = [];

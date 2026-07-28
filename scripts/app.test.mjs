@@ -2412,5 +2412,31 @@ await check("the 8004 fallback metadata URI actually resolves", async () => {
   );
 });
 
+
+await check("the minted agent document and the served one are the same", async () => {
+  // The registry points at /agent.json, so if the document the mint validates
+  // differs from the document the URL serves, the on-chain identity describes
+  // something the service is not. They were two hand-maintained copies that
+  // happened to agree.
+  const { agentDocument } = await import("../src/agent.ts");
+  const served = await fetch(url("/agent.json")).then((r) => r.json());
+  assert.deepEqual(
+    served,
+    agentDocument("https://ask-celo.vercel.app"),
+    "/agent.json does not match the document the mint would register",
+  );
+
+  // And the mint script must use the shared definition rather than its own.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const mint = readFileSync(fileURLToPath(new URL("./register-8004.mjs", import.meta.url)), "utf8");
+  assert.match(mint, /agentDocument\(domain\)/, "the mint builds its own metadata again");
+  assert.doesNotMatch(
+    mint.replace(/^\s*\/\/.*$/gm, ""),
+    /const metadata = \{/,
+    "the mint has a second copy of the agent document",
+  );
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
