@@ -5,6 +5,12 @@ Live on Celo mainnet at **https://ask-celo.vercel.app**, taking real USDC.
 Everything buildable is built, tested and deployed. Two inputs are outstanding,
 both of which need you, and one of them decays.
 
+**A stranger with an empty wallet can now use it.** Questions about the service
+("is this a scam", "can I get a refund") are answered free, before the paywall;
+questions it cannot answer are refused free rather than charged; and the Ask
+button is live at a zero balance, so those answers are actually reachable. A
+paid question with no credit says what it costs instead of failing.
+
 ## Do these two things
 
 ```bash
