@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="Ask: a cent a question, on Celo">
+  <rect width="1200" height="630" fill="#fbfaf5"/>
+  <rect x="0" y="0" width="1200" height="8" fill="#2f6f4f"/>
+  <g font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif">
+    <text x="90" y="210" font-size="104" font-weight="700" fill="#14140f">Ask</text>
+    <text x="90" y="300" font-size="52" fill="#14140f">A cent a question.</text>
+    <text x="90" y="372" font-size="40" fill="#5d5c52">No subscription, no sign-up, no card.</text>
+    <text x="90" y="470" font-size="34" fill="#5d5c52">&#8220;What is a dollar worth in shillings?&#8221;</text>
+    <text x="90" y="522" font-size="34" fill="#5d5c52">&#8220;What does it cost to send money home?&#8221;</text>
+    <text x="90" y="580" font-size="28" fill="#2f6f4f">Paid in USDC on Celo, settled over x402.</text>
+  </g>
+  <g transform="translate(980 180)">
+    <path d="M0 0a52 52 0 1 1 78 45c-15 9-23 18-23 33v9" fill="none" stroke="#2f6f4f" stroke-width="34" stroke-linecap="round"/>
+    <circle cx="55" cy="147" r="21" fill="#2f6f4f"/>
+  </g>
+</svg>

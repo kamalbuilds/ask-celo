@@ -899,5 +899,44 @@ await check("the icon the page and Aigora both point at exists in the build", as
   assert.ok(!svg.includes("<!--") || !/<!--[^>]*--[^>]*-->/.test(svg), "invalid XML comment in the SVG");
 });
 
+
+await check("the link preview has an image that exists and is the right size", async () => {
+  // socialLink is a required submission field: a public X post. Without
+  // og:image that post renders as small grey text nobody stops for, and the
+  // one link the judges and any real user follows is the weakest thing on the
+  // page. The card must also be PNG, because X and WhatsApp do not render SVG.
+  const { existsSync, readFileSync, statSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const html = readFileSync(`${root}/web/index.html`, "utf8");
+
+  const image = /<meta property="og:image" content="([^"]+)"/.exec(html)?.[1];
+  assert.ok(image, "no og:image, so a shared link has no card");
+  assert.match(image, /\.png$/, "og:image must be PNG: X and WhatsApp do not render SVG");
+  assert.match(html, /twitter:card" content="summary_large_image"/, "small card wastes the image");
+
+  const file = `${root}/web/public/${image.split("/").pop()}`;
+  assert.ok(existsSync(file), `og:image points at ${image} but ${file} does not exist`);
+
+  // Declared dimensions must match the file, or the card renders letterboxed.
+  const buf = readFileSync(file);
+  assert.equal(buf.toString("ascii", 1, 4), "PNG", "og:image is not a real PNG");
+  const width = buf.readUInt32BE(16);
+  const height = buf.readUInt32BE(20);
+  const declaredW = Number(/og:image:width" content="(\d+)"/.exec(html)?.[1]);
+  const declaredH = Number(/og:image:height" content="(\d+)"/.exec(html)?.[1]);
+  assert.equal(width, declaredW, `PNG is ${width}px wide, meta says ${declaredW}`);
+  assert.equal(height, declaredH, `PNG is ${height}px tall, meta says ${declaredH}`);
+  assert.equal(width, 1200, "og:image should be 1200x630");
+  assert.equal(height, 630, "og:image should be 1200x630");
+
+  // Some crawlers drop images over 5MB.
+  assert.ok(statSync(file).size < 5_000_000, "og:image is too large for some crawlers");
+
+  if (existsSync(`${root}/dist`)) {
+    assert.ok(existsSync(`${root}/dist/${image.split("/").pop()}`), "og:image is not copied into dist/");
+  }
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
