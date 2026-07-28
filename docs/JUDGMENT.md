@@ -185,3 +185,26 @@ magnitude behind.
 It also means the marginal value of more engineering here is low. What moves the
 outcome now is the attribution tag (so real payments count at all) and one real
 user, not another test.
+
+
+## The deploy cap lies both ways
+
+`vercel deploy --prod` printed `Resource is limited - try again in 24 hours`
+and **deployed anyway**. Thirteen changes I believed were queued had been live
+for an hour, including one that hung every POST to the paid route for 30
+minutes. I was reading the error message instead of the deployment list.
+
+Later the same message meant what it said and nothing shipped.
+
+So the message carries no information. The only way to know is:
+
+```bash
+vercel ls ask-celo | head -3          # is there a Ready deployment newer than the commit?
+npm run verify                        # does the live service behave like the code?
+```
+
+Generalised: **a tool's own report of what it did is not evidence that it did
+it.** The same failure produced a green test suite over a dead paywall, a
+harness reporting 9 settlements on a chain nobody paid on, and a kill test
+that had silently stopped testing settlement. In each case something claimed
+success and the claim was never checked against the thing itself.
