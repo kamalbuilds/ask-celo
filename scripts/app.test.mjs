@@ -1637,5 +1637,29 @@ await check("the docs do not tell a reader to cd into a directory that does not 
   assert.deepEqual(bad, [], `instructions that fail outside my working copy:\n  ${bad.join("\n  ")}`);
 });
 
+
+await check("npm run register starts registration rather than printing help", async () => {
+  // STATUS.md says to run `TELEGRAM_HANDLE=@you npm run register`. That
+  // printed the usage block and exited, because the script needed a `start`
+  // subcommand the docs never mention. The single most important command in
+  // the handoff did nothing.
+  const { execSync } = await import("node:child_process");
+  const { fileURLToPath } = await import("node:url");
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const out = execSync("node scripts/register.mjs 2>&1 || true", {
+    cwd: root,
+    encoding: "utf8",
+    timeout: 30_000,
+    env: { ...process.env, TELEGRAM_HANDLE: "" },
+  });
+  // With no handle it must name the variable to set, not dump usage.
+  assert.match(out, /TELEGRAM_HANDLE/, "bare `npm run register` does not explain what it needs");
+  assert.doesNotMatch(
+    out.slice(0, 200),
+    /^\/\*\*/m,
+    "bare `npm run register` prints the file header instead of acting",
+  );
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();

@@ -222,5 +222,15 @@ switch (cmd) {
   }
 
   default:
+    // `npm run register` is what STATUS.md tells the user to run. Printing
+    // help there means the documented command does nothing, so an absent
+    // subcommand starts the flow. An unrecognised one still shows usage.
+    if (!cmd) {
+      console.log("Starting registration. This is `register.mjs start`.\n");
+      process.argv[2] = "start";
+      await import(import.meta.url + `?again=${Date.now()}`);
+      break;
+    }
+    console.log(`unknown command: ${cmd}\n`);
     console.log(readFileSync(new URL(import.meta.url)).toString().split("\n").slice(1, 19).join("\n"));
 }
