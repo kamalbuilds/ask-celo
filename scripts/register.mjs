@@ -170,7 +170,17 @@ switch (cmd) {
     });
 
     const tag = saved.attributionTag;
-    if (!tag) throw new Error(`no attributionTag returned: ${JSON.stringify(saved).slice(0, 300)}`);
+    if (!tag) {
+      // The token is already saved, so the single-use OAuth code is not
+      // wasted: the draft can be retried without signing in again. Say that,
+      // because the natural response to a failure here is to start over and
+      // burn another code.
+      console.error("Connected, but no attributionTag came back.\n");
+      console.error("The connection is saved, so do NOT sign in again. Retry with:");
+      console.error("  node scripts/register.mjs draft\n");
+      console.error(`Response was: ${JSON.stringify(saved).slice(0, 200)}`);
+      process.exit(1);
+    }
 
     state.attributionTag = tag;
     state.telegram = telegram;

@@ -2597,5 +2597,37 @@ await check("registration failures say what to do, not what threw", async () => 
   );
 });
 
+
+await check("a failed claim does not waste the single-use OAuth code", async () => {
+  // The claim step writes the connection token, then makes a second call to
+  // save the draft and collect the attribution tag. If that second call fails,
+  // the token is already on disk — so the OAuth code is not wasted and the
+  // right move is to retry the draft, not sign in again.
+  //
+  // Nothing said so, and the natural response to a failure there is to start
+  // over, which burns another single-use code.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const src = readFileSync(fileURLToPath(new URL("./register.mjs", import.meta.url)), "utf8");
+
+  // Ordering is the actual guarantee: token written before the draft call.
+  const writeAt = src.indexOf("writeFileSync(AUTH_FILE");
+  const draftAt = src.indexOf('apiOrExplain("/submissions/me"');
+  assert.ok(writeAt > 0 && draftAt > 0, "the claim flow changed shape");
+  assert.ok(writeAt < draftAt, "the draft call runs before the token is saved; a failure wastes the code");
+
+  // And the failure must say not to sign in again.
+  assert.match(src, /do NOT sign in again/i, "a failed draft does not say the connection is already saved");
+  assert.match(src, /register\.mjs draft/, "the recovery command is not named");
+
+  // The recovery must actually work: draft has to record the tag too.
+  const draftBlock = src.slice(src.indexOf('case "draft"'));
+  assert.match(
+    draftBlock.slice(0, 3000),
+    /state\.attributionTag = saved\.attributionTag/,
+    "draft does not record the tag, so the advice to retry with it is hollow",
+  );
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
