@@ -563,4 +563,36 @@ await check("the staleness note tracks the real oracle timestamp", async () => {
   }
 });
 
+
+await check("every oracle-backed answer discloses staleness, not just FX", async () => {
+  // celoPriceAnswer reads the same SortedOracles feed as the FX answers. It
+  // was silent about age because cUSD happens to refresh every few minutes,
+  // which is a fact about today rather than a property of the code.
+  //
+  // A price is exactly the number someone acts on, so it gets the same rule.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const src = readFileSync(fileURLToPath(new URL("../src/inference.ts", import.meta.url)), "utf8");
+
+  // Every function that calls ratePerCelo must also read the age.
+  const fns = [...src.matchAll(/async function (\w+)\([^)]*\)\s*\{/g)];
+  const usesRate = [];
+  for (let i = 0; i < fns.length; i++) {
+    const start = fns[i].index;
+    const end = i + 1 < fns.length ? fns[i + 1].index : src.length;
+    const body = src.slice(start, end);
+    if (/ratePerCelo\(/.test(body) && fns[i][1] !== "ratePerCelo") {
+      usesRate.push({ name: fns[i][1], body });
+    }
+  }
+  assert.ok(usesRate.length >= 2, `only ${usesRate.length} answers read the oracle`);
+
+  const silent = usesRate.filter((f) => !/oracleAgeHours|staleNote/.test(f.body));
+  assert.deepEqual(
+    silent.map((f) => f.name),
+    [],
+    `these read a possibly-stale oracle without disclosing its age: ${silent.map((f) => f.name).join(", ")}`,
+  );
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);

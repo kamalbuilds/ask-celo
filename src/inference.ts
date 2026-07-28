@@ -275,9 +275,12 @@ async function fxAnswer(q: string) {
  */
 async function remittanceAnswer(q: string) {
   const mainnet = mainnetClient();
-  const [gasPrice, celoUsd] = await Promise.all([
+  // The fee is priced in dollars through the same oracle, so a stale feed
+  // moves the headline number this answer exists to state.
+  const [gasPrice, celoUsd, age] = await Promise.all([
     mainnet.getGasPrice(),
     ratePerCelo(MENTO_MAINNET.cUSD),
+    oracleAgeHours(MENTO_MAINNET.cUSD),
   ]);
 
   // medianRate(cUSD) quotes cUSD per CELO directly, so it multiplies —
@@ -321,7 +324,8 @@ async function remittanceAnswer(q: string) {
     // whether any of this actually helps them.
     `That is the network fee only. Cashing out to local currency costs whatever ` +
     `your exchange or P2P desk charges, and that spread, not the transfer, is ` +
-    `usually the real cost.`
+    `usually the real cost.` +
+    (staleNote(age, null) ?? "")
   );
 }
 
@@ -373,11 +377,18 @@ async function priceAnswer() {
  * celo" was answering with gas — technically about price, not the question.
  */
 async function celoPriceAnswer() {
-  const usd = await ratePerCelo(MENTO_MAINNET.cUSD);
+  // Same feed as the FX answers, so the same honesty applies. cUSD refreshes
+  // every few minutes today; nothing guarantees it will tomorrow, and a price
+  // is exactly the kind of number people act on.
+  const [usd, age] = await Promise.all([
+    ratePerCelo(MENTO_MAINNET.cUSD),
+    oracleAgeHours(MENTO_MAINNET.cUSD),
+  ]);
   return (
     `1 CELO is $${usd.toFixed(4)}, read from the Mento SortedOracles median that Celo itself ` +
     `settles stablecoin trades against, not an exchange ticker. ` +
-    `Fees on this page are quoted in USDC, so the CELO price does not change what a question costs you.`
+    `Fees on this page are quoted in USDC, so the CELO price does not change what a question costs you.` +
+    (staleNote(age, null) ?? "")
   );
 }
 
