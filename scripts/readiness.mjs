@@ -87,6 +87,9 @@ console.log(`  ${filled}/${required.length} required fields`);
 if (real(state.payTo)) {
   try {
     const res = await fetch(
+      // Mainnet explicitly, and said out loud below. gates.mjs read testnet
+      // by default and reported 9 settlements while mainnet had none — a
+      // number that flattered us about a chain nobody was paying on.
       `https://celo.blockscout.com/api/v2/addresses/${state.payTo}/token-transfers?type=ERC-20`,
     );
     const items = (await res.json()).items ?? [];
@@ -97,7 +100,7 @@ if (real(state.payTo)) {
     const external = incoming.filter((t) => !mine.has(t.from?.hash?.toLowerCase()));
     const payers = new Set(external.map((t) => t.from?.hash?.toLowerCase()));
     console.log(
-      `\nSettlements into payTo: ${incoming.length} total, ${external.length} from ${payers.size} third-party payers`,
+      `\nSettlements into payTo (celo mainnet): ${incoming.length} total, ${external.length} from ${payers.size} third-party payers`,
     );
   } catch {
     console.log("\n! could not read settlements from explorer");

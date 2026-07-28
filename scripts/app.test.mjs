@@ -494,5 +494,31 @@ await check("the request body is read once, through the cached parser", async ()
   );
 });
 
+
+await check("the scoring harness asks questions the service still answers", async () => {
+  // gates.mjs asked "gate check", which is not answerable, so the free
+  // refusal caught it before the paywall and the kill test stopped testing
+  // settlement. A harness that silently stops measuring is worse than one
+  // that fails: it reports green.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const { canAnswer } = await import("../src/inference.ts");
+  const gates = readFileSync(fileURLToPath(new URL("./gates.mjs", import.meta.url)), "utf8");
+  const asked = [...gates.matchAll(/\bq:\s*"([^"]+)"/g)].map((m) => m[1]);
+  const refused = asked.filter((q) => !canAnswer(q));
+  assert.deepEqual(refused, [], `the harness asks questions we refuse: ${refused.join(", ")}`);
+});
+
+await check("settlement counts name the network they came from", async () => {
+  // gates.mjs defaulted to testnet while production sold on mainnet, and
+  // reported "9 settlements" — a flattering number for a chain nobody was
+  // paying on. A count without its network is not evidence.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const here = (f) => readFileSync(fileURLToPath(new URL(f, import.meta.url)), "utf8");
+  assert.match(here("./gates.mjs"), /settlements on \$\{NETWORK\}/, "gates.mjs reports a bare count");
+  assert.match(here("./readiness.mjs"), /celo mainnet\)/, "readiness.mjs reports a bare count");
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();

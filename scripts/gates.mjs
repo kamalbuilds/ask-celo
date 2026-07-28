@@ -18,7 +18,15 @@
 import { createPublicClient, http } from "viem";
 import { celo, celoSepolia } from "viem/chains";
 
-const NETWORK = process.env.X402_NETWORK === "mainnet" ? "mainnet" : "testnet";
+// Ask the service being tested which network it is on, rather than assuming.
+// Defaulting to testnet while production ran mainnet made G1 check the wrong
+// facilitator and G2 "fail" by correctly reporting eip155:42220 — two red
+// gates that were really one wrong assumption in the harness.
+const SELLER_URL = process.env.SELLER_URL ?? "http://localhost:3000";
+const NETWORK = await fetch(`${SELLER_URL}/api/health`, { signal: AbortSignal.timeout(15_000) })
+  .then((r) => r.json())
+  .then((h) => (h.network === "mainnet" ? "mainnet" : "testnet"))
+  .catch(() => (process.env.X402_NETWORK === "mainnet" ? "mainnet" : "testnet"));
 const CFG = {
   mainnet: {
     caip: "eip155:42220",
@@ -38,7 +46,7 @@ const CFG = {
   },
 }[NETWORK];
 
-const SELLER = process.env.SELLER_URL ?? "http://localhost:3000";
+const SELLER = SELLER_URL;
 const PAY_TO = process.env.SELLER_PAY_TO;
 const TAG = process.env.ATTRIBUTION_TAG;
 
@@ -83,7 +91,9 @@ await gate(2, "seller returns a well-formed 402 challenge", async () => {
   if (accepts.network !== CFG.caip) throw new Error(`challenge network ${accepts.network}`);
   if (PAY_TO && accepts.payTo?.toLowerCase() !== PAY_TO.toLowerCase())
     throw new Error(`payTo ${accepts.payTo} != ${PAY_TO}`);
-  return `${accepts.price?.amount ?? accepts.maxAmountRequired} base units to ${accepts.payTo?.slice(0, 10)}…`;
+  const amount = accepts.amount ?? accepts.price?.amount ?? accepts.maxAmountRequired;
+  if (!amount) throw new Error("challenge names no amount");
+  return `${amount} base units to ${accepts.payTo?.slice(0, 10)}…`;
 });
 
 // G3 — THE KILL TEST. A session key (not a browser wallet) must be able to pay.
@@ -103,7 +113,10 @@ await gate(3, "session key signs EIP-3009 and the facilitator settles", async ()
   const res = await payFetch(`${SELLER}/api/ask`, {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ q: "gate check" }),
+    // Must be answerable: unanswerable questions are refused for free before
+    // the paywall, so anything else never reaches settlement and the kill test
+    // silently stops testing anything.
+    body: JSON.stringify({ q: "dollar to shillings" }),
   });
   if (res.status !== 200) throw new Error(`paid request returned ${res.status}`);
   const receipt = res.headers.get("payment-response");
@@ -148,7 +161,10 @@ await gate(5, "settlements counted, third-party payers separated", async () => {
   );
   const external = incoming.filter((t) => !mine.has(t.from?.hash?.toLowerCase()));
   const payers = new Set(external.map((t) => t.from?.hash?.toLowerCase()));
-  return `${incoming.length} settlements, ${external.length} from ${payers.size} third-party payers`;
+  // Name the network. This read testnet while production sold on mainnet and
+  // reported 9 settlements — a flattering number for a chain nobody was
+  // paying on. A count without its network is not evidence.
+  return `${incoming.length} settlements on ${NETWORK}, ${external.length} from ${payers.size} third-party payers`;
 });
 
 console.log(`\n${pass}/${ran} gates passing`);
