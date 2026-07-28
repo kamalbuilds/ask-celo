@@ -457,10 +457,16 @@ await check("the docs do not quote a test count that can go stale", async () => 
   const stale = [];
   for (const d of docs) {
     const text = readFileSync(`${root}/${d}`, "utf8");
-    for (const m of text.matchAll(/(\d+)\s+(checks|tests|suites)\b/g)) {
+    // Every word that could name a growing count, not just the three I first
+    // thought of: JUDGMENT.md said "17 assertions" for hours while this check
+    // passed, because "assertions" was not in the list. A check aimed at
+    // specific spellings misses the next synonym someone reaches for.
+    for (const m of text.matchAll(
+      /(\d+)\s+(checks?|tests?|assertions?|suites?|cases?|invariants?)\b/g,
+    )) {
       // "7 contract tests" is fixed by the contract's own file; a count that
       // grows with every new check is the one that rots.
-      if (m[2] !== "suites" && Number(m[1]) > 10) stale.push(`${d}: "${m[0]}"`);
+      if (!/^suites?$/.test(m[2]) && Number(m[1]) > 10) stale.push(`${d}: "${m[0]}"`);
     }
   }
   assert.deepEqual(stale, [], `these counts will be wrong by the next commit:\n  ${stale.join("\n  ")}`);

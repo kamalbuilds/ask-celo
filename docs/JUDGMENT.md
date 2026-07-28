@@ -21,8 +21,15 @@ compatibility was verified in a simulated WebView and the transcript is in the
 commit message, not paraphrased.
 
 **Proof path.** `npm run score` is one command producing one number with
-recorded history. `npm test` is 17 assertions. Neither can be satisfied by
-prose.
+recorded history. `npm test` runs every suite plus the Solidity tests and
+prints its own count. Neither can be satisfied by prose.
+
+The count is not the interesting number, though, and quoting one here would go
+stale the way an earlier hardcoded figure here did: it said seventeen when the real number had grown past a hundred. What is worth stating: roughly sixty
+deliberate mutations were run against the suite, one real invariant broken at a
+time, and about a dozen survived. Each survivor was a genuine gap, including
+two checks that passed while asserting nothing at all. A suite that has never
+been attacked is a suite whose failures are unmeasured.
 
 ## Where it is weak, stated plainly
 
