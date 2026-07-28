@@ -52,7 +52,8 @@ that matter to the people MiniPay serves:
   Mento's on-chain oracle — the same one the chain settles against, so it is the
   rate a swap executes near rather than a counter's posted spread.
 - **What will it cost to send it?** About $0.001 in network fees, measured live,
-  against the World Bank's published 6.2% average for a $200 remittance.
+  against the World Bank's published 6.36% average for a $200 remittance
+  (Remittance Prices Worldwide, Issue 54, Q3 2025).
 
 Also current gas, Mento supply, facilitator status and block finality.
 

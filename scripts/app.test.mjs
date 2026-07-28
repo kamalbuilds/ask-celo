@@ -1384,5 +1384,45 @@ await check("every facilitator call carries the same credential, from one place"
   assert.match(read("refund.ts"), /CFG\.facilitator/, "refund.ts does not use the configured facilitator");
 });
 
+
+await check("the docs do not quote a rate or benchmark that has already drifted", async () => {
+  // The README showed "1 USD = 139 KES" as a sample answer. The product says
+  // 129 today. A judge who runs the example gets a different number from the
+  // one on the page, which undermines the exact claim the example is making:
+  // that the answer is read live.
+  //
+  // The World Bank figure had drifted too: 6.2% in prose, 6.36% in the code.
+  const { readFileSync, readdirSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const walk = (dir, prefix) =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory() ? walk(`${dir}/${e.name}`, `${prefix}${e.name}/`) : `${prefix}${e.name}`,
+    );
+  const docs = ["README.md", "STATUS.md", ...walk(`${root}/docs`, "docs/")].filter((f) =>
+    f.endsWith(".md"),
+  );
+
+  // The live benchmark, from the code that answers with it.
+  const { answer } = await import("../src/inference.ts");
+  const live = await answer("how much does it cost to send money to india");
+  const benchmark = /at ([\d.]+)%/.exec(live)?.[1];
+  assert.ok(benchmark, "the remittance answer no longer states a benchmark");
+
+  const wrong = [];
+  for (const d of docs) {
+    const text = readFileSync(`${root}/${d}`, "utf8");
+    // A pinned FX rate goes stale by definition.
+    for (const m of text.matchAll(/1 USD = (\d+) KES/g)) {
+      wrong.push(`${d}: pins "1 USD = ${m[1]} KES", which is stale the day it is written`);
+    }
+    // A remittance benchmark must be the one the product cites.
+    for (const m of text.matchAll(/([\d.]+)% average for a \$200 remittance/g)) {
+      if (m[1] !== benchmark) wrong.push(`${d}: says ${m[1]}%, the product says ${benchmark}%`);
+    }
+  }
+  assert.deepEqual(wrong, [], `docs disagree with the product:\n  ${wrong.join("\n  ")}`);
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
