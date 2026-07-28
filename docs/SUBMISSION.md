@@ -52,8 +52,28 @@ are read from it at the moment they are asked.
 Run `npm run verify` against the deployment, or check by hand:
 
 ```bash
-curl https://ask-celo.vercel.app/api/health     # price, network, receipt status
+# What it sells, what it costs, and how many settlements it can still make.
+curl https://ask-celo.vercel.app/api/health
+
+# The ERC-8004 agent document the on-chain identity points at.
+curl https://ask-celo.vercel.app/agent.json
+
+# The payment terms, readable without paying. The question has to be one the
+# service can answer: anything else is refused free, before the paywall.
+curl -si -X POST https://ask-celo.vercel.app/api/ask \
+  -H 'content-type: application/json' -d '{"q":"dollar to shillings"}' \
+  | grep -i '^payment-required' | cut -d' ' -f2 | tr -d '\r' | base64 -d
+
+# Never charged for a non-answer: 400 for an off-topic question, 200 for a
+# question about the service itself, and neither settles anything.
+curl -s -o /dev/null -w '%{http_code}\n' -X POST https://ask-celo.vercel.app/api/ask \
+  -H 'content-type: application/json' -d '{"q":"who won the world cup"}'
 ```
+
+That last decoded challenge carries an x402 **Bazaar discovery extension**: the
+method, the JSON body shape, the `q` field and its length limit, and an example
+answer. An agent that finds the endpoint can call it correctly without reading
+any of this.
 
 
 - **The service runs on Celo mainnet** (`eip155:42220`, real USDC, $0.01 a
