@@ -156,3 +156,32 @@ successfully and printed exactly the intended string in every case. Nothing
 failed, so nothing could catch it. The rule now: if the UI says something about
 a user's money, something must have measured it, and where measurement is
 unavailable the copy says so rather than guessing in the user's favour.
+
+## Track 2 by raw count is not winnable, measured
+
+Re-scanned the facilitator late on day one of building (it has run since Jul 1).
+
+| | |
+|---|---|
+| Total settlements | 155,721, up ~7,600 in about 4.5 hours |
+| Rate | ~1,690 per hour across all builders |
+| Top three wallets | **88%** of recent settlements |
+| Leading wallet alone | ~536/hour, ~12,900/day |
+| Projected leader by Aug 3 | ~77,000 settlements |
+| Our ceiling | **500** — one per prepaid credit |
+
+That is 0.65% of the leader, and topping up credits only buys more of a race
+that is decided by whoever loops fastest. The leaders are paying themselves
+$0.001 per call; the volume is real on-chain but the demand is not.
+
+So the honest position: **do not compete on count.** The submission should lead
+with the thing that is actually rare — settlements from a payer who is not the
+builder — and let the count be whatever real usage produces. The judges' own
+criteria say winners are chosen on "alignment with the ecosystem mission,
+consistent transactions, and real-world utility", with manual sybil review. That
+is the only frame in which this project is ahead rather than four orders of
+magnitude behind.
+
+It also means the marginal value of more engineering here is low. What moves the
+outcome now is the attribution tag (so real payments count at all) and one real
+user, not another test.
