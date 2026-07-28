@@ -1006,9 +1006,21 @@ await check("the drafted X posts fit in a tweet", async () => {
   // its real length, so eyeballing the string is wrong in both directions.
   const { readFileSync, existsSync } = await import("node:fs");
   const { fileURLToPath } = await import("node:url");
+  // x-post.md is where drafts live. SUBMISSION.md used to carry a second one
+  // at 750 characters, which this check never saw because it was pointed at a
+  // single file; that draft now links here instead of restating a tweet badly.
   const path = fileURLToPath(new URL("../docs/aigora/x-post.md", import.meta.url));
   assert.ok(existsSync(path), "the drafted X post is missing; socialLink is a required field");
   const md = readFileSync(path, "utf8");
+
+  // And no other doc may carry its own tweet draft, since a second copy is a
+  // second thing to keep under 280 and nothing was doing that.
+  const submission = readFileSync(fileURLToPath(new URL("../docs/SUBMISSION.md", import.meta.url)), "utf8");
+  assert.doesNotMatch(
+    submission,
+    /^> MiniPay has millions/m,
+    "SUBMISSION.md carries its own X draft again; keep drafts in x-post.md",
+  );
 
   const blocks = [...md.matchAll(/```\n([\s\S]*?)```/g)]
     .map((m) => m[1].trim())

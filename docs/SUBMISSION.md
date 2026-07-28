@@ -3,31 +3,16 @@
 ## X post (required field `socialLink`)
 
 The field enforces a host allowlist, so it must be a real published post on
-x.com. Draft:
+x.com or twitter.com.
 
-> MiniPay has millions of wallets and cannot make a single x402 payment.
->
-> It implements neither personal_sign nor eth_signTypedData, and x402 settlement
-> needs an EIP-3009 signature. So the wallet that Celo built for payments is
-> locked out of Celo's payment protocol.
->
-> Built for @CeloDevs Agent Hackathon: Ask bridges it with a device-local
-> session key. One ordinary transfer the user can read, then the session key
-> signs every payment after. No seed phrase, no gas, no CELO in the UI.
->
-> So a MiniPay user can now pay a cent to ask what their money is worth in
-> shillings, or what sending it home actually costs. Both read live from the
-> chain.
->
-> Live on mainnet → https://ask-celo.vercel.app
-> Registered onchain → [ERC-8004 link]
->
-> https://ask-celo.vercel.app
->
-> @celo
+**Two drafts, both measured against the 280 limit, live in
+[`aigora/x-post.md`](aigora/x-post.md).** They are the ones to post: the draft
+that used to sit here was 750 characters, which is not a tweet, and a "draft"
+that cannot be sent is a to-do wearing a costume.
 
-Keep the opening line as the hook. It is the one fact in this hackathon that
-most people building on Celo do not know, and it is checkable in their own docs.
+The opening line is the hook worth keeping: MiniPay cannot make an x402
+payment. It is the one fact in this hackathon that most people building on
+Celo do not know, and it is checkable in their own docs.
 
 ## Project description (celobuilders submission)
 
