@@ -47,7 +47,7 @@ if (generated) {
   writeFileSync(KEY_FILE, JSON.stringify({ address: account.address, privateKey: sessionKey }, null, 2));
   chmodSync(KEY_FILE, 0o600);
 }
-const payTo = getAddress(process.env.SELLER_PAY_TO ?? "0x000000000000000000000000000000000000dEaD");
+const payTo = getAddress(process.env.SELLER_PAY_TO || "0x000000000000000000000000000000000000dEaD");
 
 console.log(`network:     ${NETWORK} (${CFG.caip})`);
 console.log(`session key: ${account.address}${generated ? ` (new, saved to ${KEY_FILE})` : ""}`);

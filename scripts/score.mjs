@@ -19,12 +19,18 @@ import { appendFileSync, readFileSync, existsSync } from "node:fs";
 const state = existsSync(".submission.json")
   ? JSON.parse(readFileSync(".submission.json", "utf8"))
   : {};
+// `||` throughout: an exported-but-empty variable is a string, so `??` keeps
+// it and the score is computed against "" or localhost. That bug cost three
+// separate fixes today; here it would silently report a worse score than the
+// truth, which is the one direction that looks like honest bad news.
+const pick = (k, ...fallbacks) =>
+  [process.env[k], ...fallbacks].find((v) => v !== undefined && v !== null && v !== "") ?? "";
 const env = {
   ...process.env,
-  SELLER_URL: process.env.SELLER_URL ?? state.liveUrl ?? "http://localhost:3000",
-  SELLER_PAY_TO: process.env.SELLER_PAY_TO ?? state.payTo ?? "",
-  OUR_WALLETS: process.env.OUR_WALLETS ?? (state.ourWallets ?? []).join(","),
-  ATTRIBUTION_TAG: process.env.ATTRIBUTION_TAG ?? state.attributionTag ?? "",
+  SELLER_URL: pick("SELLER_URL", state.liveUrl, "https://ask-celo.vercel.app"),
+  SELLER_PAY_TO: pick("SELLER_PAY_TO", state.payTo),
+  OUR_WALLETS: pick("OUR_WALLETS", (state.ourWallets ?? []).join(",")),
+  ATTRIBUTION_TAG: pick("ATTRIBUTION_TAG", state.attributionTag),
 };
 if (!env.SESSION_TEST_KEY && existsSync(".session-test.json")) {
   env.SESSION_TEST_KEY = JSON.parse(readFileSync(".session-test.json", "utf8")).privateKey;

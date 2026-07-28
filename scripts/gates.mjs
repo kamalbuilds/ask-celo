@@ -199,7 +199,7 @@ await gate(5, "settlements counted, third-party payers separated", async () => {
   const items = (await res.json()).items ?? [];
   const incoming = items.filter((t) => t.to?.hash?.toLowerCase() === PAY_TO.toLowerCase());
   const mine = new Set(
-    (process.env.OUR_WALLETS ?? "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean),
+    (process.env.OUR_WALLETS || "").split(",").map((s) => s.trim().toLowerCase()).filter(Boolean),
   );
   const external = incoming.filter((t) => !mine.has(t.from?.hash?.toLowerCase()));
   const payers = new Set(external.map((t) => t.from?.hash?.toLowerCase()));

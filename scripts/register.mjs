@@ -66,7 +66,7 @@ const [cmd, arg] = process.argv.slice(2);
 
 switch (cmd) {
   case "start": {
-    const telegram = process.env.TELEGRAM_HANDLE ?? state.telegram;
+    const telegram = process.env.TELEGRAM_HANDLE || state.telegram;
     if (!telegram) {
       console.log("Set TELEGRAM_HANDLE first — it is required at registration.");
       console.log("  TELEGRAM_HANDLE=@yourhandle node scripts/register.mjs start\n");
@@ -76,9 +76,9 @@ switch (cmd) {
       body: {
         hackathonId: HACKATHON,
         human: {
-          name: process.env.BUILDER_NAME ?? "Kamal",
-          email: process.env.BUILDER_EMAIL ?? "geniusamansingh@gmail.com",
-          social: process.env.BUILDER_SOCIAL ?? "@kamalbuilds",
+          name: process.env.BUILDER_NAME || "Kamal",
+          email: process.env.BUILDER_EMAIL || "geniusamansingh@gmail.com",
+          social: process.env.BUILDER_SOCIAL || "@kamalbuilds",
           teamName: "Ask",
         },
         agent: { name: "Jcode", harness: "jcode", model: "claude-opus" },
@@ -97,7 +97,7 @@ switch (cmd) {
     // Check this BEFORE spending the claim code. A claim code is single-use, so
     // failing after redeeming it would mean signing in through Google again for
     // a value we could have demanded up front.
-    const telegram = process.env.TELEGRAM_HANDLE ?? state.telegram;
+    const telegram = process.env.TELEGRAM_HANDLE || state.telegram;
     if (!telegram) {
       throw new Error(
         "TELEGRAM_HANDLE not set. Re-run as:\n" +

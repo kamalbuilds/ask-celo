@@ -1731,5 +1731,36 @@ await check("an empty env var falls back to the default, like an absent one", as
   assert.equal(cfg.network, "testnet", "empty X402_NETWORK should mean testnet, not something else");
 });
 
+
+await check("no config default is defeated by an empty string", async () => {
+  // `?? default` is wrong for env vars: an exported-but-empty variable is a
+  // string, so the default never applies. This bug appeared four times today
+  // (SELLER_PAY_TO, SELLER_URL, CELO_RPC, PORT) and each individual fix let
+  // the next one survive. Assert the pattern, not the instances.
+  const { readFileSync, readdirSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const root = fileURLToPath(new URL("..", import.meta.url));
+
+  const files = [
+    ...readdirSync(`${root}/src`).filter((f) => f.endsWith(".ts")).map((f) => `src/${f}`),
+    ...readdirSync(`${root}/scripts`).filter((f) => f.endsWith(".mjs")).map((f) => `scripts/${f}`),
+  ];
+  const bad = [];
+  for (const f of files) {
+    const src = readFileSync(`${root}/${f}`, "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "");
+    // process.env.X ?? something, or process.env["X"] ?? something.
+    for (const m of src.matchAll(/process\.env(?:\.[A-Z_0-9]+|\[[^\]]+\])\s*\?\?/g)) {
+      // ??= for setting a test default is fine; it only fires when undefined
+      // and the value it sets is a real one.
+      if (src.slice(m.index, m.index + m[0].length + 1).endsWith("?？=")) continue;
+      if (src.slice(m.index).startsWith(`${m[0]}=`)) continue;
+      bad.push(`${f}: ${m[0]} — an empty value defeats this default, use || instead`);
+    }
+  }
+  assert.deepEqual(bad, [], `env defaults that an empty string defeats:\n  ${bad.join("\n  ")}`);
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();

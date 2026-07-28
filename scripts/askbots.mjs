@@ -217,8 +217,8 @@ switch (cmd) {
     const out = await api("/bot-profiles", {
       method: "POST",
       body: {
-        botName: process.env.ASKBOTS_NAME ?? "evidence-reviewer",
-        country: process.env.ASKBOTS_COUNTRY ?? "US",
+        botName: process.env.ASKBOTS_NAME || "evidence-reviewer",
+        country: process.env.ASKBOTS_COUNTRY || "US",
         skills: ["browser", "github", "webhooks", "anthropic"],
         celoAddress,
       },

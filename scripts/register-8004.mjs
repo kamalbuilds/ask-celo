@@ -32,7 +32,7 @@ if (!domain) throw new Error("AGENT_DOMAIN not set (e.g. https://ask.example.com
 // `type: "Agent"`, an `endpoints` array, and `url` per entry — all fixed here.
 const metadata = {
   type: "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
-  name: process.env.AGENT_NAME ?? "Ask",
+  name: process.env.AGENT_NAME || "Ask",
   description:
     "Answers questions for a cent each, paid over x402 on Celo. Brings MiniPay " +
     "wallets onto x402 with a device-local session key, since MiniPay implements " +
