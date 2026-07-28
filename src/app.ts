@@ -5,7 +5,7 @@ import { ExactEvmScheme } from "@x402/evm/exact/server";
 import { HTTPFacilitatorClient } from "@x402/core/server";
 import { getAddress } from "viem";
 import { NETWORK, CFG, PRICE } from "./config.js";
-import { answer } from "./inference.js";
+import { answer, canAnswer, SUGGESTIONS } from "./inference.js";
 import { recordReceipt, receiptStats, receiptsEnabled } from "./receipts.js";
 import { settleRefund } from "./refund.js";
 
@@ -107,6 +107,27 @@ export function createApp() {
     } catch {
       // A malformed receipt header must never affect the paid response.
     }
+  });
+
+  // Refuse an unanswerable question BEFORE the payment middleware sees it.
+  // The middleware charges on the way in, so without this the user pays $0.01
+  // to be told what else to try. 402-then-suggestions is a refund request.
+  app.use("/api/ask", async (c, next) => {
+    const body = await c.req.raw
+      .clone()
+      .json()
+      .catch(() => ({}) as { q?: string });
+    const q = (body as { q?: string }).q;
+    if (q?.trim() && !canAnswer(q)) {
+      return c.json(
+        {
+          error: "not something I can answer from chain data",
+          hint: SUGGESTIONS,
+        },
+        400,
+      );
+    }
+    return next();
   });
 
   app.use(paymentMiddleware(routes, server)); // routes first, then server

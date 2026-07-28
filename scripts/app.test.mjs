@@ -59,7 +59,9 @@ await check("the 402 challenge names our payTo, asset and amount", async () => {
   const res = await fetch(url("/api/ask"), {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ q: "x" }),
+    // Must be a question we can answer: unanswerable ones are refused for
+    // free before the paywall, so they never produce a challenge.
+    body: JSON.stringify({ q: "what is a dollar in shillings" }),
   });
   const header = res.headers.get("payment-required");
   assert.ok(header, "no payment-required header");
@@ -255,6 +257,32 @@ await check("the answered question is cleared from the box", async () => {
     /\("q"\)\.value = ""/,
     "the question is not cleared after it is answered",
   );
+});
+
+
+await check("an unanswerable question is refused free, not charged", async () => {
+  // The payment middleware charges on the way in. Without a pre-check, asking
+  // something off-topic costs $0.01 and returns a list of suggestions —
+  // a refund request, and the fastest way to lose a first-time payer.
+  const res = await fetch(url("/api/ask"), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ q: "what is the capital of France" }),
+  });
+  assert.equal(res.status, 400, `off-topic question returned ${res.status}, not a free refusal`);
+  const body = await res.json();
+  assert.ok(body.hint?.includes("USD to KES"), "the refusal does not say what it can answer");
+});
+
+await check("an answerable question still reaches the paywall", async () => {
+  // The guard must not swallow real questions. A topic match should get past
+  // it and hit the 402, not the 400.
+  const res = await fetch(url("/api/ask"), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ q: "what is a dollar in shillings" }),
+  });
+  assert.equal(res.status, 402, `answerable question returned ${res.status}, not a payment challenge`);
 });
 
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);

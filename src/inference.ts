@@ -232,14 +232,29 @@ const TOPICS: Array<{ match: RegExp; run: (q: string) => Promise<string> }> = [
   { match: /\bblock|height|latency|fast|finality|tps/i, run: blockAnswer },
 ];
 
+/**
+ * Whether a question matches a topic we can actually answer from chain data.
+ *
+ * The payment middleware runs before the handler, so without this check an
+ * unanswerable question is charged $0.01 and receives a list of suggestions.
+ * Taking money for "I cannot answer that" is the fastest way to lose the
+ * third-party payer we are trying to earn.
+ */
+export const SUGGESTIONS =
+  `I answer from live Celo chain data. Try an exchange rate ("what is USD to KES"), ` +
+  `what a transaction costs, how much of a local stablecoin exists, or how fast blocks are. ` +
+  `Every answer is read at the moment you ask, not cached.`;
+
+export function canAnswer(q: string): boolean {
+  return TOPICS.some((t) => t.match.test(q));
+}
+
 export async function answer(q: string): Promise<string> {
   const topic = TOPICS.find((t) => t.match.test(q));
   if (topic) return topic.run(q);
 
-  // Say what it does know rather than bluffing. Someone just paid for this.
-  return (
-    `I answer from live Celo chain data. Try an exchange rate ("what is USD to KES"), ` +
-    `what a transaction costs, how much of a local stablecoin exists, or how fast blocks are. ` +
-    `Every answer is read at the moment you ask, not cached.`
-  );
+  // Unreachable via /api/ask, which refuses unanswerable questions for free
+  // before charging. Kept so a direct caller of answer() still gets guidance
+  // rather than an empty string.
+  return SUGGESTIONS;
 }
