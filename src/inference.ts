@@ -278,6 +278,32 @@ async function celoPriceAnswer() {
   );
 }
 
+
+/**
+ * Questions about the service itself, answered free and before the paywall.
+ *
+ * "Is this a scam", "can I get a refund", "what happens to my money" are what
+ * a stranger asks while deciding whether to pay at all. Charging for them is
+ * absurd — they have not agreed to anything yet — and refusing them is a dead
+ * end at the exact moment trust is being decided. They are free.
+ */
+export const ABOUT_MATCH =
+  /\b(scam|rug|legit|trust|safe|refund|money back|get my money|store|storing|save|privacy|private|log|who (are|made) you|what is this|what.s this|what can I ask|what do you do|how does this work|need (a )?wallet|which wallet|what wallet|happens to my|need celo|why usdc|how do I (add|top ?up)|minipay|sign ?up|account|subscription)\b/i;
+
+export async function aboutAnswer() {
+  return (
+    `This is a pay-per-question service on Celo. Each question costs ${PRICE.display} in USDC. ` +
+    `There is no sign-up and no account: your browser holds a key, you top it up, and questions ` +
+    `are paid one at a time over x402. Questions I cannot answer are refused before payment, ` +
+    `so you are never charged for a non-answer. ` +
+    `Unused credit goes back to your wallet whenever you want — the button at the bottom of the page ` +
+    `returns the full remaining balance, and it works even though that key holds no CELO for gas. ` +
+    `Questions are answered from live chain reads and are not stored. ` +
+    `Any wallet works, including MiniPay, and you never need to hold CELO: fees are paid in USDC. ` +
+    `The code is at https://github.com/kamalbuilds/ask-celo if you would rather read it than trust it.`
+  );
+}
+
 // A topic matches by pattern, or by a predicate when the real test is more
 // than a regex — the FX pair must be resolved, not guessed, so the paywall
 // refuses exactly what the answer cannot serve.

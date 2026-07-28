@@ -308,5 +308,56 @@ await check("build output is not tracked in source", async () => {
   assert.equal(tracked, "", `dist/ is tracked in git:\n${tracked}`);
 });
 
+
+await check("questions about the service are answered free", async () => {
+  // "Is this a scam" behind a paywall answers itself. These are what a
+  // stranger asks while deciding whether to pay at all, before they have
+  // agreed to anything. Charging is absurd; refusing is a dead end at the
+  // exact moment trust is decided.
+  for (const q of ["is this a scam", "can I get a refund", "what happens to my money"]) {
+    const res = await fetch(url("/api/ask"), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ q }),
+    });
+    assert.equal(res.status, 200, `"${q}" returned ${res.status} instead of a free answer`);
+    const { answer } = await res.json();
+    assert.ok(answer.length > 100, `"${q}" got a stub answer`);
+  }
+});
+
+await check("the free path does not swallow paid questions", async () => {
+  // A generous free match is a revenue hole: every question it catches is one
+  // nobody pays for. Real questions must still hit the paywall.
+  const res = await fetch(url("/api/ask"), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ q: "how much does it cost to send money to india" }),
+  });
+  assert.equal(res.status, 402, `a paid question returned ${res.status}, not a payment challenge`);
+});
+
+await check("the free answer only claims things that are true", async () => {
+  // A page can say anything about money. This one says refunds work with no
+  // CELO and that questions are not stored — both must be backed by code.
+  const { aboutAnswer } = await import("../src/inference.ts");
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const a = await aboutAnswer();
+  const session = readFileSync(fileURLToPath(new URL("../src/session.ts", import.meta.url)), "utf8");
+
+  if (/no CELO|without .*CELO|holds no CELO/i.test(a)) {
+    assert.match(
+      session,
+      /transferWithAuthorization|TransferWithAuthorization/,
+      "claims gasless refunds but the sweep is not EIP-3009",
+    );
+  }
+  if (/not stored|are not stored/i.test(a)) {
+    const app = readFileSync(fileURLToPath(new URL("../src/app.ts", import.meta.url)), "utf8");
+    assert.doesNotMatch(app, /console\.log\([^)]*\bq\b/, "claims questions are not stored but logs them");
+  }
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();

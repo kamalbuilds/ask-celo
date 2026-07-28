@@ -5,7 +5,7 @@ import { ExactEvmScheme } from "@x402/evm/exact/server";
 import { HTTPFacilitatorClient } from "@x402/core/server";
 import { getAddress } from "viem";
 import { NETWORK, CFG, PRICE } from "./config.js";
-import { answer, canAnswer, SUGGESTIONS } from "./inference.js";
+import { ABOUT_MATCH, aboutAnswer, answer, canAnswer, SUGGESTIONS } from "./inference.js";
 import { recordReceipt, receiptStats, receiptsEnabled } from "./receipts.js";
 import { settleRefund } from "./refund.js";
 
@@ -118,6 +118,12 @@ export function createApp() {
       .json()
       .catch(() => ({}) as { q?: string });
     const q = (body as { q?: string }).q;
+    // Questions about the service are answered free. Someone deciding whether
+    // to trust us has not agreed to pay anything yet, and "is this a scam"
+    // behind a paywall answers itself.
+    if (q?.trim() && ABOUT_MATCH.test(q)) {
+      return c.json({ answer: await aboutAnswer() });
+    }
     if (q?.trim() && !canAnswer(q)) {
       return c.json(
         {
