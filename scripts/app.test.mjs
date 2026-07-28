@@ -2308,5 +2308,40 @@ await check("every computed view flag is actually rendered", async () => {
   }
 });
 
+
+await check("nothing is exported that nothing imports", async () => {
+  // canAsk was computed, tested and rendered nowhere, and it read as
+  // load-bearing because it had tests. An export with no importer is the same
+  // shape: it survives refactors because deleting it looks risky.
+  const { readFileSync, readdirSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const root = fileURLToPath(new URL("..", import.meta.url));
+
+  const dirs = ["src", "web", "scripts", "api"];
+  const all = dirs.flatMap((d) =>
+    readdirSync(`${root}/${d}`, { withFileTypes: true })
+      .filter((e) => e.isFile() && /\.(ts|mjs)$/.test(e.name))
+      .map((e) => `${d}/${e.name}`),
+  );
+  const sources = new Map(all.map((f) => [f, readFileSync(`${root}/${f}`, "utf8")]));
+
+  const orphans = [];
+  for (const [file, src] of sources) {
+    if (!file.startsWith("src/")) continue;
+    for (const m of src.matchAll(/^export (?:const|function|async function|type|interface) (\w+)/gm)) {
+      const name = m[1];
+      const importedElsewhere = [...sources].some(
+        ([other, text]) => other !== file && new RegExp(`\\b${name}\\b`).test(text),
+      );
+      if (!importedElsewhere) orphans.push(`${file}: ${name}`);
+    }
+  }
+  assert.deepEqual(
+    orphans,
+    [],
+    `exported but never imported anywhere:\n  ${orphans.join("\n  ")}`,
+  );
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();

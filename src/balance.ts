@@ -9,7 +9,7 @@ import { PRICE } from "./config.js";
  * a request that cannot complete. MiniPay users are on 2G/3G, so a failed read
  * is a normal condition, not an edge case.
  */
-export type BalanceView = {
+type BalanceView = {
   balance: string;
   message: string;
   canSweep: boolean;

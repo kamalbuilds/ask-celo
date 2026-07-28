@@ -31,7 +31,7 @@ export function loadSessionKey(): { address: Address; privateKey: Hex } {
 // Retry: every balance read in the browser goes through this, including the
 // one that decides whether the sweep button appears at all. A throttled RPC
 // showing $0.00 tells a user their money is gone.
-export const publicClient = createPublicClient({
+const publicClient = createPublicClient({
   chain: CFG.chain,
   transport: http(CFG.rpc, { retryCount: 3, retryDelay: 300 }),
 });
