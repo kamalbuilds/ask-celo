@@ -164,5 +164,39 @@ await check("the docs describe the product that actually ships", async () => {
   }
 });
 
+
+await check("every command and link in the docs exists", async () => {
+  // Docs accumulate references to things that get renamed. A dead link or a
+  // command that no longer exists is the first thing a judge hits, and nothing
+  // fails when it rots.
+  const { readFileSync, existsSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const pkg = JSON.parse(readFileSync(`${root}/package.json`, "utf8"));
+
+  const docs = ["README.md", "STATUS.md", "docs/TRY-IT.md", "docs/GO-LIVE.md"];
+  for (const doc of docs) {
+    const text = readFileSync(`${root}/${doc}`, "utf8");
+
+    for (const m of text.matchAll(/npm run ([a-z:0-9-]+)/g)) {
+      assert.ok(pkg.scripts[m[1]], `${doc} references missing script: npm run ${m[1]}`);
+    }
+    // Two syntaxes to follow: markdown links, and bare paths in backticks —
+    // the docs list files as `docs/NAME.md` rather than linking them, so a
+    // check that only understood [text](link) matched nothing and passed a
+    // deliberately broken reference.
+    const dir = doc.includes("/") ? doc.slice(0, doc.lastIndexOf("/")) : ".";
+    const refs = [
+      ...[...text.matchAll(/\]\((?!https?:|mailto:)([^)#\s]+)/g)].map((m) => m[1]),
+      ...[...text.matchAll(/`((?:docs\/)?[A-Za-z0-9._-]+\.md)`/g)].map((m) => m[1]),
+    ];
+    for (const ref of refs) {
+      // A bare `docs/X.md` is written from the repo root wherever it appears.
+      const base = ref.startsWith("docs/") ? root : `${root}/${dir}`;
+      assert.ok(existsSync(`${base}/${ref}`), `${doc} references a missing file: ${ref}`);
+    }
+  }
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
