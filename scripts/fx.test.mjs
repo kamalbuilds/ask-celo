@@ -130,10 +130,21 @@ await check("the fee the PRODUCT states is under a cent", async () => {
 
 await check("the fee the PRODUCT states is negligible against a remittance", async () => {
   const text = await answer("remittance fee for $200");
-  const pct = Number(text.match(/\(([\d.]+)% of the amount\)/)?.[1]);
+  // Two valid shapes: a number, or "under 0.001%" when it rounds to zeros.
+  // Accept both rather than pinning the wording, which is how this check
+  // broke when the answer started saying what a vanishing fee means.
+  const under = /under ([\d.]+)% of the amount/.exec(text);
+  const exact = /\(([\d.]+)% of the amount\)/.exec(text);
+  const pct = Number((under ?? exact)?.[1]);
   assert.ok(Number.isFinite(pct), `no percentage found in: ${text.slice(0, 120)}`);
-  // The World Bank average is 6.2%. Ours should be orders below, not near it.
-  assert.ok(pct < 0.1, `product states ${pct}% of $200 — too close to traditional rails`);
+  // Compare against the figure the answer itself cites, so this cannot drift
+  // from the source the way a hardcoded 6.2% did.
+  const worldBank = Number(/at ([\d.]+)%/.exec(text)?.[1]);
+  assert.ok(Number.isFinite(worldBank), "the answer no longer cites a comparison figure");
+  assert.ok(
+    pct < worldBank / 50,
+    `product states ${pct}% of $200 against a ${worldBank}% benchmark: too close to traditional rails`,
+  );
 });
 
 await check("the rate the PRODUCT states matches the oracle", async () => {
@@ -351,6 +362,44 @@ await check("answers use no em dashes", async () => {
   for (const t of texts) {
     assert.ok(!t.includes("\u2014"), `em dash in an answer: ${t.slice(0, 90)}`);
   }
+});
+
+
+await check("the remittance answer quotes the amount the user asked about", async () => {
+  // \d{2,6} required two digits, so "$5" was ignored and the answer silently
+  // described $200 instead. A wrong number about the user's own money, with
+  // nothing to signal a number had been missed.
+  const { answer } = await import("../src/inference.ts");
+  const cases = [
+    ["send $5 to kenya", "$5"],
+    ["send $50 to nigeria", "$50"],
+    ["send $10,000 to india", "$10,000"],
+    ["how much to send $1500 home", "$1,500"],
+  ];
+  for (const [q, want] of cases) {
+    const a = await answer(q);
+    assert.ok(a.includes(want), `"${q}" should quote ${want}, got: ${a.slice(0, 90)}`);
+  }
+  // No amount given is the only case that may default.
+  assert.ok((await answer("send money home")).includes("$200"));
+});
+
+await check("a vanishing percentage says so instead of printing zeros", async () => {
+  // At $10,000 the fee rounds to "0.0000%", which reads as a broken number
+  // rather than as "vanishingly small".
+  const { answer } = await import("../src/inference.ts");
+  const a = await answer("send $10,000 to india");
+  assert.doesNotMatch(a, /0\.0000%/, "prints a rounded-to-zero percentage");
+  assert.match(a, /under 0\.001%/, "does not say the fee is vanishingly small");
+});
+
+await check("a capped amount says it was capped", async () => {
+  // Clamping protects the comparison from nonsense input, but answering about
+  // a different number than the one asked, silently, is the same class of bug
+  // as ignoring "$5".
+  const { answer } = await import("../src/inference.ts");
+  const a = await answer("send $99999999 abroad");
+  assert.match(a, /cap/i, "silently answered about a different amount");
 });
 
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);

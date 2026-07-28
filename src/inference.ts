@@ -236,20 +236,35 @@ async function remittanceAnswer(q: string) {
   // confidently wrong number about money.
   const feeUsd = ((Number(gasPrice) * TRANSFER_GAS) / 1e18) * celoUsd;
 
-  const amount = Number(q.match(/\$?\s?(\d{2,6})/)?.[1] ?? 200);
+  // \d{2,6} silently ignored "$5" and answered about $200 instead — a wrong
+  // number about the user's own money, with no sign anything was missed.
+  // One digit up, commas allowed, and clamped so "$99999999" cannot render a
+  // nonsense comparison.
+  const raw = q.match(/\$?\s?(\d[\d,]{0,9})/)?.[1];
+  const parsed = raw ? Number(raw.replace(/,/g, "")) : NaN;
+  const wanted = Number.isFinite(parsed) && parsed > 0 ? parsed : 200;
+  const CAP = 1_000_000;
+  const amount = Math.min(wanted, CAP);
+  // Never silently answer about a different number than the one asked.
+  const capNote =
+    wanted > CAP ? ` (quoted at the $${CAP.toLocaleString("en-US")} I cap this at)` : "";
   // Remittance Prices Worldwide, Issue 54 (Q3 2025 data, the most recent
   // release). 6.2% was stale. The number is the comparison the whole answer
   // rests on, so it names its source and issue rather than floating free.
   const WORLD_BANK_PCT = 6.36;
   const traditional = (amount * WORLD_BANK_PCT) / 100;
   const pct = (feeUsd / amount) * 100;
+  // At $10,000 this rounds to "0.0000%", which reads as a bug rather than as
+  // "vanishingly small". Say what it means instead of printing zeros.
+  const pctText = pct < 0.001 ? "under 0.001%" : `${pct.toFixed(4)}%`;
 
   return (
-    `Sending $${amount} in stablecoins on Celo costs about $${feeUsd.toFixed(4)} in network fees ` +
-    `(${pct.toFixed(4)}% of the amount), at ${(Number(gasPrice) / 1e9).toFixed(1)} gwei right now. ` +
+    `Sending $${amount.toLocaleString("en-US")}${capNote} in stablecoins on Celo ` +
+    `costs about $${feeUsd.toFixed(4)} in network fees ` +
+    `(${pctText} of the amount), at ${(Number(gasPrice) / 1e9).toFixed(1)} gwei right now. ` +
     `The World Bank's Remittance Prices Worldwide (Issue 54, Q3 2025) puts the global ` +
     `average cost of sending $200 at ${WORLD_BANK_PCT}%; ` +
-    `at that rate this transfer would cost about $${traditional.toFixed(2)}. ` +
+    `at that rate this transfer would cost about $${traditional.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}. ` +
     `The fee can be paid in the stablecoin itself, so no separate gas token is needed. ` +
     // Without this the answer is true and misleading. The network fee is not
     // the cost of the transfer: the recipient still has to turn stablecoins
