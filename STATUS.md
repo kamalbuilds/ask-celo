@@ -65,8 +65,21 @@ send time. Register before driving top-up volume; x402 volume is safe either
 way.
 
 It takes a minute: project name, public GitHub repo, personal Telegram handle,
-and the wallet. Registration requires Google sign-in — I checked the live skill
-for any other path and there is none.
+and the wallet. Registration requires Google sign-in, and I checked the live
+skill for any other path: there is none.
+
+**Registering is not entering.** Publishing is a separate call, and the project
+is not in the hackathon until it happens. The full sequence:
+
+```bash
+TELEGRAM_HANDLE=@you npm run register        # start, then claim with the code
+node scripts/register.mjs draft              # fills every field, names what is missing
+node scripts/register.mjs submit             # publishes the entry
+```
+
+`draft` is safe to run repeatedly and tells you exactly which fields are still
+empty. Only `telegram` is required to register; the rest are required to
+publish, and can be filled any time before Aug 3.
 
 **And do not compete on settlement count.** Measured on Jul 28: the facilitator
 is at 155,721 settlements, three wallets produce 88% of recent activity, and the

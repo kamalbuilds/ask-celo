@@ -797,5 +797,21 @@ await check("submission values match the hosts the organizers accept", async () 
   }
 });
 
+
+await check("registering is not entering: a publish path exists", async () => {
+  // The live skill is explicit that publishing is a separate POST from saving
+  // a draft. register.mjs had start/claim/status and no way to publish, so
+  // following it end to end would have left the project registered, tagged,
+  // and never actually entered.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const src = readFileSync(fileURLToPath(new URL("./register.mjs", import.meta.url)), "utf8");
+  assert.match(src, /submissions\/me\/publish/, "no publish call: registering alone does not enter");
+  assert.match(src, /confirm: true/, "publish must confirm");
+  // socialLink is the documented exception to customFields. Sending it in the
+  // wrong place is a 400 at the worst moment.
+  assert.match(src, /delete customFields\.socialLink/, "socialLink must be sent top-level, not in customFields");
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();

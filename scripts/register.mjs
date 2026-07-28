@@ -8,7 +8,13 @@
  *
  *   node scripts/register.mjs start                 # prints the sign-in link
  *   node scripts/register.mjs claim CELO-ABCD-2345  # finishes, saves the tag
+ *   node scripts/register.mjs draft                 # fills every field, says what is missing
+ *   node scripts/register.mjs submit                # publishes the entry
  *   node scripts/register.mjs status                # shows the current draft
+ *
+ * Registering is not entering. Registration saves a draft and returns the
+ * attribution tag; publishing is a separate call, and without it the project
+ * is not in the hackathon at all.
  *
  * The claim step saves the connection token to .celobuilders.json and writes
  * the returned attributionTag into .submission.json, because that tag is the
@@ -26,7 +32,13 @@ const state = existsSync(STATE_FILE) ? JSON.parse(readFileSync(STATE_FILE, "utf8
 const saveState = () => writeFileSync(STATE_FILE, JSON.stringify(state, null, 2) + "\n");
 
 const auth = () => {
-  if (!existsSync(AUTH_FILE)) throw new Error("not connected — run: register.mjs start");
+  if (!existsSync(AUTH_FILE)) {
+    console.error("Not connected yet. Run this first:\n");
+    console.error("  TELEGRAM_HANDLE=@yourhandle node scripts/register.mjs start\n");
+    console.error("It prints a Google sign-in link; paste the short code back with:");
+    console.error("  node scripts/register.mjs claim CELO-XXXX-0000");
+    process.exit(1);
+  }
   return JSON.parse(readFileSync(AUTH_FILE, "utf8")).connection;
 };
 
@@ -130,6 +142,77 @@ switch (cmd) {
     console.log(`\nattributionTag: ${tag}`);
     console.log("Written to .submission.json. Add it to the deployment as ATTRIBUTION_TAG");
     console.log("so every receipt carries it — only this exact code is credited.");
+    break;
+  }
+
+  // Fill every field the organizers configure, from .submission.json, then
+  // publish. Registration alone does not enter the hackathon: publishing does,
+  // and it is a separate call that nothing here could make until now.
+  case "draft":
+  case "submit": {
+    const token = auth();
+    const fields = await api(`/hackathons/${HACKATHON}/submission-fields`);
+    const spec = Array.isArray(fields) ? fields : (fields.submissionFields ?? fields.fields ?? []);
+
+    // Only send keys the hackathon configures. Anything else is a 400.
+    const customFields = {};
+    const missing = [];
+    for (const f of spec) {
+      const value = state[f.key];
+      if (value) customFields[f.key] = value;
+      else if (f.required) missing.push(`${f.key} (${f.label})`);
+    }
+    // socialLink is the documented exception: it goes top-level, not in
+    // customFields.
+    delete customFields.socialLink;
+
+    const body = {
+      projectName: "Ask",
+      tagline: "Pay a cent a question, settled over x402 on Celo.",
+      description:
+        "MiniPay implements neither personal_sign nor eth_signTypedData, so its wallets " +
+        "cannot produce the EIP-3009 signature x402 settlement requires. Ask bridges that " +
+        "with a device-local session key: the user makes one ordinary transfer they can " +
+        "read, and that key signs every payment afterwards. Questions are answered from " +
+        "live Celo chain reads, and a question we cannot answer is refused before payment.",
+      trackIds: ["most-x402-payments", "most-revenue-generated"],
+      githubUrl: "https://github.com/kamalbuilds/ask-celo",
+      demoUrl: state.liveUrl,
+      celoNetwork: state.celoNetwork,
+      agentContributionNotes:
+        "Written end to end by a coding agent: research, implementation, tests, " +
+        "on-chain verification and this submission.",
+      customFields,
+      ...(state.socialLink ? { socialLink: state.socialLink } : {}),
+      ...(state.contractAddress ? { contractAddresses: [state.contractAddress] } : {}),
+    };
+
+    const saved = await api("/submissions/me", { method: "PUT", token, body });
+    console.log(`draft saved: ${saved.projectName ?? "Ask"}`);
+    if (saved.attributionTag && saved.attributionTag !== state.attributionTag) {
+      state.attributionTag = saved.attributionTag;
+      saveState();
+      console.log(`attributionTag: ${saved.attributionTag}`);
+    }
+
+    if (missing.length) {
+      console.log("\nnot publishable yet, still required:");
+      missing.forEach((m) => console.log(`  - ${m}`));
+      console.log("\nFill them in .submission.json and re-run.");
+      break;
+    }
+    if (cmd === "draft") {
+      console.log("\nAll required fields present. Publish with:");
+      console.log("  node scripts/register.mjs submit");
+      break;
+    }
+
+    const out = await api("/submissions/me/publish", {
+      method: "POST",
+      token,
+      body: { confirm: true },
+    });
+    console.log(`\npublished: ${JSON.stringify(out).slice(0, 200)}`);
     break;
   }
 
