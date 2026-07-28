@@ -81,8 +81,8 @@ is not in the hackathon until it happens. The full sequence:
 
 ```bash
 TELEGRAM_HANDLE=@you npm run register        # start, then claim with the code
-node scripts/register.mjs draft              # fills every field, names what is missing
-node scripts/register.mjs submit             # publishes the entry
+npm run register -- draft                    # fills every field, names what is missing
+npm run register -- submit                   # publishes the entry
 ```
 
 `draft` is safe to run repeatedly and tells you exactly which fields are still

@@ -6,11 +6,11 @@
  * either side of it is automated here, so the manual part is: open a link,
  * sign in, paste back a short code.
  *
- *   node scripts/register.mjs start                 # prints the sign-in link
- *   node scripts/register.mjs claim CELO-ABCD-2345  # finishes, saves the tag
- *   node scripts/register.mjs draft                 # fills every field, says what is missing
- *   node scripts/register.mjs submit                # publishes the entry
- *   node scripts/register.mjs status                # shows the current draft
+ *   npm run register                          # opens the sign-in link
+ *   npm run register -- claim CELO-ABCD-2345  # finishes, saves the tag
+ *   npm run register -- draft                 # fills every field, says what is missing
+ *   npm run register -- submit                # publishes the entry
+ *   npm run register -- status                # shows the current draft
  *
  * Registering is not entering. Registration saves a draft and returns the
  * attribution tag; publishing is a separate call, and without it the project
@@ -34,9 +34,9 @@ const saveState = () => writeFileSync(STATE_FILE, JSON.stringify(state, null, 2)
 const auth = () => {
   if (!existsSync(AUTH_FILE)) {
     console.error("Not connected yet. Run this first:\n");
-    console.error("  TELEGRAM_HANDLE=@yourhandle node scripts/register.mjs start\n");
-    console.error("It prints a Google sign-in link; paste the short code back with:");
-    console.error("  node scripts/register.mjs claim CELO-XXXX-0000");
+    console.error("  TELEGRAM_HANDLE=@yourhandle npm run register\n");
+    console.error("It opens a Google sign-in link; paste the short code back with:");
+    console.error("  npm run register -- claim CELO-XXXX-0000");
     process.exit(1);
   }
   return JSON.parse(readFileSync(AUTH_FILE, "utf8")).connection;
@@ -91,7 +91,7 @@ switch (cmd) {
     const telegram = process.env.TELEGRAM_HANDLE || state.telegram;
     if (!telegram) {
       console.log("Set TELEGRAM_HANDLE first — it is required at registration.");
-      console.log("  TELEGRAM_HANDLE=@yourhandle node scripts/register.mjs start\n");
+      console.log("  TELEGRAM_HANDLE=@yourhandle npm run register\n");
     }
     const out = await api("/auth/google/start", {
       method: "POST",
@@ -191,7 +191,7 @@ switch (cmd) {
       // burn another code.
       console.error("Connected, but no attributionTag came back.\n");
       console.error("The connection is saved, so do NOT sign in again. Retry with:");
-      console.error("  node scripts/register.mjs draft\n");
+      console.error("  npm run register -- draft\n");
       console.error(`Response was: ${JSON.stringify(saved).slice(0, 200)}`);
       process.exit(1);
     }
@@ -264,7 +264,7 @@ switch (cmd) {
     }
     if (cmd === "draft") {
       console.log("\nAll required fields present. Publish with:");
-      console.log("  node scripts/register.mjs submit");
+      console.log("  npm run register -- submit");
       break;
     }
 

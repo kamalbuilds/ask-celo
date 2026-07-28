@@ -2699,7 +2699,7 @@ await check("a failed claim does not waste the single-use OAuth code", async () 
 
   // And the failure must say not to sign in again.
   assert.match(src, /do NOT sign in again/i, "a failed draft does not say the connection is already saved");
-  assert.match(src, /register\.mjs draft/, "the recovery command is not named");
+  assert.match(src, /register -- draft/, "the recovery command is not named");
 
   // The recovery must actually work: draft has to record the tag too.
   const draftBlock = src.slice(src.indexOf('case "draft"'));
@@ -2830,6 +2830,43 @@ await check("register start opens the sign-in link and names a working next comm
     readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"),
   );
   assert.ok(pkg.scripts.register, "npm run register does not exist");
+});
+
+
+await check("the instructions use one command form, and it works", async () => {
+  // The flow told you three different ways to run the same thing: npm run
+  // register, node scripts/register.mjs start, and npm run register -- claim.
+  // A reader hitting a failure then cannot tell whether they used the wrong
+  // form or hit a real error, and the npm form needs `--` before a subcommand,
+  // which nothing had verified.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const src = readFileSync(`${root}/scripts/register.mjs`, "utf8");
+  const status = readFileSync(`${root}/STATUS.md`, "utf8");
+
+  // Nothing user-facing may tell a reader to invoke the script directly.
+  for (const [name, text] of [["register.mjs", src], ["STATUS.md", status]]) {
+    assert.doesNotMatch(
+      text,
+      /node scripts\/register\.mjs/,
+      `${name} still tells a reader to run the script directly instead of via npm`,
+    );
+  }
+
+  // And the npm form with a subcommand must actually reach that subcommand.
+  const { execSync } = await import("node:child_process");
+  const out = execSync("npm run register -- draft 2>&1 || true", {
+    cwd: root,
+    encoding: "utf8",
+    timeout: 60_000,
+    env: { ...process.env, TELEGRAM_HANDLE: "" },
+  });
+  assert.match(
+    out,
+    /Not connected yet/,
+    `\`npm run register -- draft\` did not reach the draft path:\n${out.slice(-300)}`,
+  );
 });
 
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
