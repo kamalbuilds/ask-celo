@@ -2343,5 +2343,31 @@ await check("nothing is exported that nothing imports", async () => {
   );
 });
 
+
+await check("go-live refuses to deploy unverified without being told to", async () => {
+  // Proof of Ship asks for a *verified* contract. deploy.sh only verifies when
+  // CELOSCAN_API_KEY is set, and STATUS.md — the document a reader follows —
+  // never mentioned it. The deploy would have succeeded, cost real gas, and
+  // silently lost a scored item that cannot be fixed without redeploying.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const goLive = readFileSync(`${root}/scripts/go-live.sh`, "utf8");
+  const status = readFileSync(`${root}/STATUS.md`, "utf8");
+
+  assert.match(goLive, /CELOSCAN_API_KEY/, "go-live never mentions the verification key");
+  assert.match(
+    goLive,
+    /Continue without verification/i,
+    "go-live proceeds unverified without asking",
+  );
+  // The prompt must come before anything is spent.
+  assert.ok(
+    goLive.indexOf("CELOSCAN_API_KEY") < goLive.indexOf("deploying AskReceipts"),
+    "the verification warning comes after the deploy has started",
+  );
+  assert.match(status, /CELOSCAN_API_KEY/, "STATUS does not tell the reader about the key");
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();

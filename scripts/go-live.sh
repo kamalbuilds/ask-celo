@@ -33,6 +33,20 @@ fi
 
 export X402_NETWORK=mainnet
 
+# Say it before spending gas, not after. Proof of Ship asks for a *verified*
+# contract, and an unverified deploy cannot be verified later without a
+# redeploy — the gas is already spent by the time this would matter.
+if [ -z "${CELOSCAN_API_KEY:-}" ]; then
+  echo
+  echo "! CELOSCAN_API_KEY is not set. The contract will deploy but stay unverified,"
+  echo "  which costs a Proof of Ship item and cannot be fixed without redeploying."
+  echo "  Free key: https://celoscan.io/myapikey — then re-run with it set."
+  echo
+  printf "  Continue without verification? [y/N] "
+  read -r reply < /dev/tty || reply=n
+  case "$reply" in [yY]*) ;; *) echo "Stopped."; exit 1 ;; esac
+fi
+
 echo
 echo "=== 1/4  deploying AskReceipts"
 ./scripts/deploy.sh mainnet | tee /tmp/go-live-deploy.out

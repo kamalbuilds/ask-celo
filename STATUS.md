@@ -24,7 +24,10 @@ Touch targets are 44px, and the answer is announced to a screen reader.
 TELEGRAM_HANDLE=@yourhandle npm run register
 
 # 2. Send ~0.2 CELO to 0xE626fC73E7FcE36a2371D7B4f3482Aed17308A77, then:
-npm run go-live
+#    CELOSCAN_API_KEY is optional but worth 60 seconds: Proof of Ship asks for
+#    a *verified* contract, and without the key the deploy succeeds unverified.
+#    Free at https://celoscan.io/myapikey
+CELOSCAN_API_KEY=<key> npm run go-live
 ```
 
 `go-live` deploys the receipts contract, verifies its source on Celoscan, mints
