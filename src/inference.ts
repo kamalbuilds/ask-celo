@@ -12,7 +12,7 @@
  */
 import { createPublicClient, http, erc20Abi, formatUnits, getAddress } from "viem";
 import { celo } from "viem/chains";
-import { CFG } from "./config.js";
+import { CFG, PRICE, TOPUP_MIN, TOPUP_MIN_QUESTIONS } from "./config.js";
 
 const client = createPublicClient({ chain: CFG.chain, transport: http(CFG.rpc) });
 
@@ -217,19 +217,58 @@ async function blockAnswer() {
   );
 }
 
+
+/**
+ * What this service costs, and what it charges for.
+ *
+ * "How much are you charging me" was routing to chain gas, which answers a
+ * question nobody asked while the user is holding a wallet wondering what
+ * they just agreed to. A paid service that cannot state its own price is
+ * not one a stranger pays twice.
+ */
+async function priceAnswer() {
+  return (
+    `Each question costs ${PRICE.display} in USDC, taken at the moment you ask. ` +
+    `No subscription and no minimum: add ${TOPUP_MIN} and it is ${TOPUP_MIN_QUESTIONS} questions. ` +
+    `Unused credit returns to your wallet with the button at the bottom of the page. ` +
+    `Off-topic questions are refused before payment, so you are never charged for "I cannot answer that".`
+  );
+}
+
+/**
+ * The CELO price from the same oracle the chain settles against. "Price of
+ * celo" was answering with gas — technically about price, not the question.
+ */
+async function celoPriceAnswer() {
+  const usd = await ratePerCelo(MENTO_MAINNET.cUSD);
+  return (
+    `1 CELO is $${usd.toFixed(4)}, read from the Mento SortedOracles median that Celo itself ` +
+    `settles stablecoin trades against, not an exchange ticker. ` +
+    `Fees on this page are quoted in USDC, so the CELO price does not change what a question costs you.`
+  );
+}
+
 const TOPICS: Array<{ match: RegExp; run: (q: string) => Promise<string> }> = [
   {
-    match: /\b(remit\w*|send(ing)? money|transfer fee|western union|moneygram|wire|abroad|back home|diaspora)\b/i,
+    match: /\b(remit\w*|send(ing)? (money|\$?\d+)|transfer fee|western union|moneygram|wire|abroad|back home|diaspora|cash out)\b/i,
     run: remittanceAnswer,
   },
   {
     match: /\b(usd|eur|kes|cop|brl|real|reais|shillings?|pesos?|dollars?|euros?|kenya\w*|colombia\w*|brazil\w*|rate|exchange|fx|convert|worth)\b/i,
     run: fxAnswer,
   },
-  { match: /\bgas|fee|cost|cheap|price of a (tx|transaction)/i, run: gasAnswer },
+  // Before the gas match: "how much are you charging me" is about this
+  // service, not the chain.
+  {
+    match: /\b(charg\w+|your (price|fee|cost)|cost .*(ask|question)|per question|how much (is|does) (this|it)|subscription|free)\b/i,
+    run: priceAnswer,
+  },
+  // Before the gas match: "price of celo" is the asset, not a transaction.
+  { match: /\b(price|worth|value) of (a )?celo\b|\bcelo (price|worth)\b/i, run: celoPriceAnswer },
+  { match: /\bgas|fee|cost|cheap|charg\w+|price/i, run: gasAnswer },
   { match: /\bstablecoin|mento|cusd|ckes|creal|ceur|ccop|local currency/i, run: stablecoinAnswer },
   { match: /\bx402|facilitator|micropayment|pay per|402/i, run: x402Answer },
-  { match: /\bblock|height|latency|fast|finality|tps/i, run: blockAnswer },
+  { match: /\bblock|height|latency|fast|finality|tps|how long|slow|confirm/i, run: blockAnswer },
 ];
 
 /**

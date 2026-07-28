@@ -65,3 +65,14 @@ export const PRICE = {
   display: "$0.01",
   short: "1c",            // for a button, where "$0.01" is too wide
 } as const;
+
+/**
+ * The smallest top-up offered on the page. Derived into prose by the answer
+ * that states our own price, so the number a user is quoted cannot drift from
+ * the number the button charges. The page is the source of truth for the
+ * choices; this must stay equal to the smallest data-amount in web/index.html,
+ * which app.test.mjs asserts.
+ */
+export const TOPUP_MIN_USD = 0.25;
+export const TOPUP_MIN = "25c";
+export const TOPUP_MIN_QUESTIONS = Math.floor(TOPUP_MIN_USD / PRICE.usd);

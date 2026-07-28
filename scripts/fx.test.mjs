@@ -152,6 +152,54 @@ await check("CELO is worth more than a cent and less than a thousand dollars", (
   assert.ok(rates.cUSD > 0.01 && rates.cUSD < 1000, `CELO reads $${rates.cUSD} — direction likely inverted`);
 });
 
+
+await check("realistic first questions are answerable, not refused", async () => {
+  // Off-topic questions are refused for free, which is right — but a refusal
+  // is still a dead end for a first-time payer. These are questions a real
+  // person holding a wallet asks. Each one that misses is a user who decides
+  // the thing does not work.
+  const { canAnswer } = await import("../src/inference.ts");
+  const questions = [
+    "how much is 100 dollars in kenyan shillings",
+    "send $50 to nigeria",
+    "cheapest way to pay my mum in ghana",
+    "how much does it cost to send money to india",
+    "what's the fee to cash out",
+    "how long does a transaction take",
+    "price of celo",
+    "how much are you charging me",
+    "what is cUSD",
+    "how many cKES exist",
+    "dollar to rupee",
+  ];
+  const missed = questions.filter((q) => !canAnswer(q));
+  assert.deepEqual(missed, [], `these would be refused:\n  ${missed.join("\n  ")}`);
+});
+
+await check("the price question answers about us, not about chain gas", async () => {
+  // "How much are you charging me" routed to gas — a true statement about
+  // something the user did not ask, while they are deciding whether to trust
+  // a paid service. It must state our own price.
+  const { answer } = await import("../src/inference.ts");
+  const { PRICE } = await import("../src/config.ts");
+  const a = await answer("how much are you charging me");
+  assert.ok(a.includes(PRICE.display), `the price answer never says ${PRICE.display}: ${a}`);
+});
+
+await check("the quoted minimum top-up matches the smallest button", async () => {
+  // The price answer quotes a minimum in prose. The page defines the choices.
+  // Two numbers, one truth: if they drift, we quote a price the button does
+  // not charge.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const { TOPUP_MIN_USD, TOPUP_MIN_QUESTIONS } = await import("../src/config.ts");
+  const { PRICE } = await import("../src/config.ts");
+  const html = readFileSync(fileURLToPath(new URL("../web/index.html", import.meta.url)), "utf8");
+  const amounts = [...html.matchAll(/data-amount="([\d.]+)"/g)].map((m) => Number(m[1]));
+  assert.equal(Math.min(...amounts), TOPUP_MIN_USD, "TOPUP_MIN_USD is not the smallest button on the page");
+  assert.equal(TOPUP_MIN_QUESTIONS, Math.floor(TOPUP_MIN_USD / PRICE.usd), "the quoted question count is wrong");
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 
 for (const [a, b] of [["cUSD", "cKES"], ["cUSD", "cCOP"], ["cUSD", "cREAL"], ["cEUR", "cKES"]]) {
