@@ -27,6 +27,11 @@ echo "=== 402 challenge terms"
 curl -si --max-time 20 -X POST https://ask-celo.vercel.app/api/ask -H 'content-type: application/json' -d '{"q":"dollar to shillings"}' \
  | grep -i '^payment-required' | cut -d' ' -f2 | tr -d '\r' | base64 -d \
  | python3 -c "import json,sys;a=json.load(sys.stdin)['accepts'][0];print(' network',a['network']);print(' asset  ',a['asset']);print(' amount ',a['amount']);print(' payTo  ',a['payTo'])"
+echo "=== the 8004 metadata URI resolves"
+# go-live can mint an identity pointing at this URL. A 404 here would mean an
+# on-chain identity nobody can resolve, and it looks finished either way.
+curl -s -o /dev/null -w '  HTTP %{http_code} (want 200)\n' --max-time 20 https://ask-celo.vercel.app/agent.json
+
 echo "=== refund endpoint guards bad input"
 curl -s --max-time 20 -X POST https://ask-celo.vercel.app/api/refund -H 'content-type: application/json' -d '{}' -w ' [HTTP %{http_code}]\n'
 echo "=== frontend chain"
