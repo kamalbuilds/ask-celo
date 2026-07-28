@@ -33,7 +33,10 @@ async function refreshBalance() {
   let view;
   try {
     usd = toUsd(await usdcBalance(session.address));
-    view = balanceView(usd);
+    // Read the connected wallet too, so an empty session with a funded wallet
+    // reads differently from having no USDC at all.
+    const walletUsd = wallet ? toUsd(await usdcBalance(wallet).catch(() => 0n)) : undefined;
+    view = balanceView(usd, walletUsd);
   } catch {
     view = unknownBalance;
   }

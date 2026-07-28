@@ -120,6 +120,15 @@ await check("the balance view gates spending on affordability", async () => {
   const { balanceView } = await import("../src/balance.ts");
   const { PRICE } = await import("../src/config.ts");
 
+  // An empty session with a funded wallet is one tap from working; an empty
+  // wallet is a dead end. Telling the second group to "add credit" is advice
+  // they cannot act on, which is the difference between a stalled user and a
+  // lost one.
+  const noFunds = balanceView(0, 0);
+  assert.match(noFunds.message, /need USDC/i, "a user with no USDC anywhere is told to add credit");
+  const canTopUp = balanceView(0, 5);
+  assert.match(canTopUp.message, /Add credit/i, "a funded wallet is not offered the top-up path");
+
   const empty = balanceView(0);
   assert.equal(empty.canAsk, false, "can ask with nothing");
   assert.equal(empty.canSweep, false, "can sweep nothing");

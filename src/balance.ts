@@ -28,11 +28,24 @@ export const unknownBalance: BalanceView = {
   showStorageWarning: false,
 };
 
-export function balanceView(usd: number): BalanceView {
+/**
+ * @param usd       the session key's balance, which is what pays for questions
+ * @param walletUsd the connected wallet's balance, if known
+ *
+ * The two are different problems. An empty session key with a funded wallet is
+ * one tap away from working. An empty wallet is a dead end, and saying "add
+ * credit" to someone with no USDC anywhere is advice they cannot act on.
+ */
+export function balanceView(usd: number, walletUsd?: number): BalanceView {
   const left = Math.floor(usd / PRICE.usd);
+  const noFundsAnywhere = usd === 0 && walletUsd === 0;
   return {
     balance: `$${usd.toFixed(2)}`,
-    message: left > 0 ? `${left} question${left === 1 ? "" : "s"} left` : "Add credit to ask a question",
+    message: left > 0
+      ? `${left} question${left === 1 ? "" : "s"} left`
+      : noFundsAnywhere
+        ? "You need USDC on Celo to pay. Any exchange that supports Celo, or a swap in your wallet."
+        : "Add credit to ask a question",
     canAsk: left >= 1,
     canSweep: usd > 0,
     // Only warn when there is something to lose. A standing warning on an
