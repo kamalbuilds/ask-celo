@@ -520,5 +520,27 @@ await check("settlement counts name the network they came from", async () => {
   assert.match(here("./readiness.mjs"), /celo mainnet\)/, "readiness.mjs reports a bare count");
 });
 
+
+await check("the Ask button works at a zero balance", async () => {
+  // Free answers are for the visitor who has not paid yet. A button disabled
+  // until they top up made every one of them unreachable by the exact person
+  // they exist for — the free paths worked over HTTP and could not be reached
+  // from the page. Verified in a browser at $0: "is this a scam" answers.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const main = readFileSync(fileURLToPath(new URL("../web/main.ts", import.meta.url)), "utf8");
+  assert.doesNotMatch(
+    main,
+    /ask-btn"\)\.disabled = !view\.canAsk/,
+    "the Ask button is gated on balance, so free answers cannot be reached",
+  );
+  // And a paid question at $0 must explain itself rather than throw a status.
+  assert.match(
+    main,
+    /res\.status === 402/,
+    "a paid question with no credit shows a raw error instead of saying to top up",
+  );
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();

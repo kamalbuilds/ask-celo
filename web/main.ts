@@ -47,7 +47,11 @@ async function refreshBalance() {
 
   $("balance").textContent = view.balance;
   $("questions-left").textContent = view.message;
-  $<HTMLButtonElement>("ask-btn").disabled = !view.canAsk;
+  // Not gated on balance: questions about the service, and questions we
+  // cannot answer, are free — and a disabled button made every one of them
+  // unreachable for the visitor who has not paid yet, which is exactly the
+  // person they exist for. The paid path still stops at the paywall below.
+  $<HTMLButtonElement>("ask-btn").disabled = false;
   show("sweep", view.canSweep);
   show("storage-note", view.showStorageWarning);
   return usd;
@@ -193,6 +197,13 @@ $("ask-btn").addEventListener("click", async () => {
         $("answer").textContent = body.hint;
         show("answer");
         setStatus("ask-status", "");
+        return;
+      }
+      // A paid question with no credit: the x402 client cannot settle, and
+      // the raw status is meaningless to someone who has not topped up. Say
+      // the one thing that unblocks them.
+      if (res.status === 402) {
+        setStatus("ask-status", "That one costs a cent. Add credit above and ask again.", true);
         return;
       }
       throw new Error(`request failed (${res.status})`);
