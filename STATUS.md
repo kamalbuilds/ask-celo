@@ -127,6 +127,24 @@ The service is callable by a machine without reading any prose:
 
 Both verified against production, not just locally.
 
+`/api/health` also reports remaining facilitator credits. Settlement stops dead
+at zero and the symptom is a failing paywall, so the number is worth watching:
+there are 500, which is 500 paid answers.
+
+## When something goes wrong
+
+Every path that takes or returns money now bounds its wait and says what it
+knows rather than what it hopes:
+
+- a paid request times out at 45s instead of hanging on "Thinking…" forever,
+  and with the balance unchanged it says plainly that nothing was charged
+- a refund that fails because facilitator credit ran out says so, and says the
+  money is still in the session key and still yours
+- a top-up rejected for insufficient funds says that, rather than "try again",
+  which is advice that would fail identically forever
+- a chain read that fails after payment returns 502 with "your payment was not
+  taken", because the x402 middleware cancels settlement on any 4xx or 5xx
+
 ## How much of this is actually tested
 
 Four suites plus the Solidity tests, and `npm test` prints the current count.
