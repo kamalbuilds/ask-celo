@@ -412,7 +412,8 @@ export async function aboutAnswer() {
     `so you are never charged for a non-answer. ` +
     `Unused credit goes back to your wallet whenever you want: the button at the bottom of the page ` +
     `returns the full remaining balance, and it works even though that key holds no CELO for gas. ` +
-    `Questions are answered from live chain reads and are not stored. ` +
+    `Questions are answered from live chain reads and are not stored, and where a ` +
+    `price feed lags the answer says how old it is. ` +
     `Any wallet works, including MiniPay, and you never need to hold CELO: fees are paid in USDC. ` +
     `The code is at https://github.com/kamalbuilds/ask-celo if you would rather read it than trust it.`
   );

@@ -410,6 +410,15 @@ await check("the free answer only claims things that are true", async () => {
       "claims gasless refunds but the sweep is not EIP-3009",
     );
   }
+  // The service's own description must not overclaim freshness either: it is
+  // the answer a suspicious first-time visitor reads, and it said "live chain
+  // reads" while the oracle-backed answers were disclosing ten-hour lag.
+  assert.match(
+    a,
+    /says how old|feed lags/i,
+    "the service description claims live reads without mentioning that a feed can lag",
+  );
+
   if (/not stored|are not stored/i.test(a)) {
     const app = readFileSync(fileURLToPath(new URL("../src/app.ts", import.meta.url)), "utf8");
     assert.doesNotMatch(app, /console\.log\([^)]*\bq\b/, "claims questions are not stored but logs them");
