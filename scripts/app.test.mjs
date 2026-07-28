@@ -1231,5 +1231,33 @@ await check("receipt failures are counted, not swallowed", async () => {
   assert.match(src, /lastError/, "the failure reason is not kept, so health says nothing useful");
 });
 
+
+await check("every button that moves money disables itself while it works", async () => {
+  // Ask, top-up and sweep each take seconds. Without disabling, a second tap
+  // asks and pays twice, tops up twice, or signs a second refund
+  // authorization for money already moving. A mutation flipping the guards to
+  // false left every suite green.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const main = readFileSync(fileURLToPath(new URL("../web/main.ts", import.meta.url)), "utf8");
+
+  for (const id of ["ask-btn", "topup-btn", "sweep"]) {
+    const start = main.indexOf(`$("${id}").addEventListener`);
+    assert.ok(start > 0, `no handler found for ${id}`);
+    // Slice to the end of the handler, not a fixed length: at 2400 chars this
+    // cut the ask handler before its finally block and reported a bug that
+    // was not there. A test that lies about a fix is worse than one that
+    // misses it.
+    const rest = main.slice(start);
+    const end = rest.indexOf("\n});");
+    assert.ok(end > 0, `could not find the end of the ${id} handler`);
+    const handler = rest.slice(0, end);
+    assert.match(handler, /disabled = true/, `${id} stays live while its work is in flight`);
+    // And it must come back, or one failure bricks the control forever.
+    assert.match(handler, /disabled = false/, `${id} is never re-enabled`);
+    assert.match(handler, /finally\s*\{/, `${id} does not re-enable in a finally block`);
+  }
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
