@@ -29,8 +29,11 @@ const { readFileSync: _readFileSync, existsSync: _existsSync } = await import("n
 const _state = _existsSync(".submission.json")
   ? JSON.parse(_readFileSync(".submission.json", "utf8"))
   : {};
-const SELLER_URL =
-  process.env.SELLER_URL ?? _state.liveUrl ?? "https://ask-celo.vercel.app";
+// `env()` not `??`: an exported-but-empty variable is neither null nor
+// undefined, so `??` keeps the empty string and every downstream fetch fails
+// with a bare "fetch failed". This bit twice, here and on SELLER_PAY_TO.
+const env = (k) => (process.env[k] || undefined);
+const SELLER_URL = env("SELLER_URL") ?? _state.liveUrl ?? "https://ask-celo.vercel.app";
 const NETWORK = await fetch(`${SELLER_URL}/api/health`, { signal: AbortSignal.timeout(15_000) })
   .then((r) => r.json())
   .then((h) => (h.network === "mainnet" ? "mainnet" : "testnet"))
@@ -47,13 +50,13 @@ const SELLER = SELLER_URL;
 // publishes its own payTo on /api/health, which makes a bare run meaningful
 // for someone who has never seen this repo before.
 const PAY_TO =
-  (process.env.SELLER_PAY_TO || undefined) ??
+  env("SELLER_PAY_TO") ??
   _state.payTo ??
   (await fetch(`${SELLER_URL}/api/health`, { signal: AbortSignal.timeout(15_000) })
     .then((r) => r.json())
     .then((h) => h.payTo)
     .catch(() => undefined));
-const TAG = process.env.ATTRIBUTION_TAG ?? _state.attributionTag;
+const TAG = env("ATTRIBUTION_TAG") ?? _state.attributionTag;
 
 let pass = 0;
 let ran = 0;
@@ -108,13 +111,13 @@ await gate(2, "seller returns a well-formed 402 challenge", async () => {
 // G3 — THE KILL TEST. A session key (not a browser wallet) must be able to pay.
 // If a session-key signature cannot settle, the entire product thesis is dead.
 await gate(3, "session key signs EIP-3009 and the facilitator settles", async () => {
-  if (!process.env.SESSION_TEST_KEY)
+  if (!env("SESSION_TEST_KEY"))
     throw new Error("set SESSION_TEST_KEY to a funded throwaway key to run the kill test");
   const { x402Client, wrapFetchWithPayment } = await import("@x402/fetch");
   const { ExactEvmScheme } = await import("@x402/evm/exact/client");
   const { privateKeyToAccount } = await import("viem/accounts");
 
-  const account = privateKeyToAccount(process.env.SESSION_TEST_KEY);
+  const account = privateKeyToAccount(env("SESSION_TEST_KEY"));
   const client = new x402Client();
   client.register("eip155:*", new ExactEvmScheme(account));
   const payFetch = wrapFetchWithPayment(fetch, client);
@@ -170,7 +173,7 @@ await gate(3, "session key signs EIP-3009 and the facilitator settles", async ()
 // G4 — the tag is worthless if it does not survive on-chain. Assert, never assume:
 // the docs warn that some smart-account and relayer paths strip trailing calldata.
 await gate(4, "attribution tag survives on-chain", async () => {
-  const hash = process.env.TAGGED_TX_HASH;
+  const hash = env("TAGGED_TX_HASH");
   if (!hash) throw new Error("set TAGGED_TX_HASH to a real top-up tx to check the tag");
   if (!TAG) throw new Error("ATTRIBUTION_TAG not set — register on celobuilders first");
   const { verifyTx } = await import("@celo/attribution-tags");
