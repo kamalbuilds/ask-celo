@@ -35,10 +35,12 @@ const SETTLEMENT = "0xe8e82e430a40d1b49666960260fe3652c6378a8ee2fa405eaf9eb661d3
 const TAG = "celo_b7k3p9da1234";
 
 let n = 0;
-const check = (name, fn) => {
+// Async-aware: with a bare `fn()` an async check's assertions could not fail
+// the run. See tag.test.mjs for the same bug found by a mutation that passed.
+const check = async (name, fn) => {
   n++;
   try {
-    fn();
+    await fn();
     console.log(`  ok   ${name}`);
   } catch (e) {
     console.log(`  FAIL ${name}: ${e.message}`);
@@ -57,7 +59,7 @@ const build = (tag) => {
 
 console.log("receipt calldata");
 
-check("decodes back to the exact sale it represents", () => {
+await check("decodes back to the exact sale it represents", () => {
   const { functionName, args } = decodeFunctionData({ abi: ABI, data: build(TAG) });
   assert.equal(functionName, "record");
   assert.equal(getAddress(args[0]), PAYER, "payer must be the wallet that actually paid");
@@ -65,13 +67,13 @@ check("decodes back to the exact sale it represents", () => {
   assert.equal(args[2].toLowerCase(), SETTLEMENT.toLowerCase(), "must point at the real settlement");
 });
 
-check("carries the attribution tag that credits the work", () => {
+await check("carries the attribution tag that credits the work", () => {
   const decoded = fromDataSuffix(build(TAG));
   assert.ok(decoded, "no ERC-8021 suffix — this sale would be credited to nobody");
   assert.ok(decoded.codes.includes(TAG), `tag missing, found ${JSON.stringify(decoded.codes)}`);
 });
 
-check("the tag does not corrupt the call it rides on", () => {
+await check("the tag does not corrupt the call it rides on", () => {
   const tagged = build(TAG);
   const plain = build(null);
   assert.ok(tagged.startsWith(plain), "suffix altered the call — record() would misbehave");
@@ -79,13 +81,13 @@ check("the tag does not corrupt the call it rides on", () => {
   assert.equal(args[1], 10_000n, "amount changed once tagged");
 });
 
-check("works untagged too, so a missing tag never blocks the receipt", () => {
+await check("works untagged too, so a missing tag never blocks the receipt", () => {
   const { functionName } = decodeFunctionData({ abi: ABI, data: build(null) });
   assert.equal(functionName, "record");
   assert.equal(fromDataSuffix(build(null)), null);
 });
 
-check("a settlement hash is always 32 bytes", () => {
+await check("a settlement hash is always 32 bytes", () => {
   // bytes32 silently truncates a longer value and throws on a shorter one, so
   // a malformed hash from the facilitator must not become a wrong receipt.
   assert.throws(
@@ -101,7 +103,7 @@ check("a settlement hash is always 32 bytes", () => {
 
 console.log("\nrefund authorization");
 
-check("refund authorization names the user's own wallet as recipient", () => {
+await check("refund authorization names the user's own wallet as recipient", () => {
   const userWallet = "0x1111111111111111111111111111111111111111";
   const auth = {
     from: PAYER,
@@ -117,7 +119,7 @@ check("refund authorization names the user's own wallet as recipient", () => {
   assert.notEqual(getAddress(auth.to), getAddress(auth.from), "refund to itself is a no-op");
 });
 
-check("refund amount is the full balance, not a fixed price", () => {
+await check("refund amount is the full balance, not a fixed price", () => {
   // A refund hardcoded to the per-call price would strand everything else.
   const balance = 19_680_000n;
   const auth = { value: balance.toString() };
@@ -125,7 +127,7 @@ check("refund amount is the full balance, not a fixed price", () => {
   assert.notEqual(BigInt(auth.value), 10_000n, "refund must not use the $0.01 call price");
 });
 
-check("refund guards reject the ways this endpoint could be abused", () => {
+await check("refund guards reject the ways this endpoint could be abused", () => {
   // The endpoint spends OUR prepaid facilitator credits to move someone
   // else's money. It cannot steal, since the payer signs. But unbounded it is
   // a free settlement service for strangers.
@@ -146,7 +148,7 @@ check("refund guards reject the ways this endpoint could be abused", () => {
   assert.equal(guard(a, b, 19_680_000n, 19_680_000n), "ok");
 });
 
-check("the price is consistent wherever it is expressed", () => {
+await check("the price is consistent wherever it is expressed", () => {
   // It used to be hardcoded in seven places across three files: the 402
   // challenge, the receipt amount, the health endpoint, the button label and
   // the client's questions-left maths. Missing one would have the UI quoting a
@@ -161,7 +163,7 @@ check("the price is consistent wherever it is expressed", () => {
 // The receipt tests above assert calldata this file builds. That is a formula
 // retyped in a test — the same hollowness that let the FX inversion through.
 // This one calls the real builder, so removing the tag from receipts.ts fails.
-check("the receipt the PRODUCT builds carries the tag", () => {
+await check("the receipt the PRODUCT builds carries the tag", () => {
   const { buildReceiptData } = productReceipts;
   const tagged = buildReceiptData(PAYER, 10_000n, SETTLEMENT, "celo_b7k3p9da1234");
   const decoded = fromDataSuffix(tagged);
@@ -177,7 +179,7 @@ check("the receipt the PRODUCT builds carries the tag", () => {
   assert.equal(args[1], 10_000n);
 });
 
-check("the top-up the PRODUCT builds carries the tag", () => {
+await check("the top-up the PRODUCT builds carries the tag", () => {
   // The user's only on-chain transaction, so the only one that can carry
   // attribution. An untagged top-up is real volume credited to nobody.
   const { buildTopUpData } = productSession;

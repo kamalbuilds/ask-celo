@@ -1000,5 +1000,30 @@ await check("the blocker text matches what the organizers actually say", async (
   assert.match(src, /retroactively|retroactive/, "the blocker no longer explains what is and is not recoverable");
 });
 
+
+await check("every suite's check() awaits, so an async assertion can fail", async () => {
+  // tag.test.mjs had `fn()` with no await. Two async checks reported "ok"
+  // while asserting against deliberately broken source: the promise rejected
+  // after the try block had already returned. A test that cannot fail is
+  // worse than no test, because it certifies.
+  //
+  // Found only because a mutation I expected to fail did not. That is the
+  // whole reason to run mutations rather than trust green.
+  const { readFileSync, readdirSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const dir = fileURLToPath(new URL(".", import.meta.url));
+  const broken = [];
+  for (const f of readdirSync(dir).filter((f) => f.endsWith(".test.mjs"))) {
+    const src = readFileSync(`${dir}/${f}`, "utf8");
+    const helper = /const check = (async )?\((?:[^)]*)\) => \{[\s\S]{0,200}?\}/.exec(src)?.[0];
+    if (!helper) continue;
+    if (!/await fn\(\)/.test(helper)) broken.push(`${f}: check() does not await fn()`);
+    // And every call site must await, or the failure lands after the run ends.
+    const bare = src.split("\n").filter((l) => /^check\(/.test(l)).length;
+    if (bare) broken.push(`${f}: ${bare} call(s) to check() without await`);
+  }
+  assert.deepEqual(broken, [], `suites where a failing async check cannot fail the run:\n  ${broken.join("\n  ")}`);
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
