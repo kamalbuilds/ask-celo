@@ -65,8 +65,29 @@ still block a real entry:
    not on GitHub (`total_count: 0`). Without it there is no defined way to
    submit, whatever the profile says.
 
-The honest read: registering is possible, and the submission path is not. Worth
-five minutes if the skill appears before Aug 3.
+**Corrected Jul 28.** That read was wrong, and the cause is instructive: I
+searched GitHub for `aigora-feedback` and got `total_count: 0`, so I concluded
+the skill did not exist. It does. The repo is **`trionlabs/aigora-skills`**, and
+it contains both `skills/aigora-feedback` and `skills/aigora-register`. I had
+searched for the skill name instead of reading the hackathon FAQ, which names
+the repo directly.
+
+So Track 4 is enterable:
+
+1. `skills/aigora-register` registers an agent on Celo Sepolia and yields the
+   `aigora.org/services/<id>` profile URL.
+2. `skills/aigora-feedback` opens a PR into `feedback/` on that repo. **The PR
+   link is the submission artifact** (`aigoraFeedbackIssueUrl`), and maintainers
+   judge the top 10 most valuable for the CELO prize.
+
+A draft report is written and evidence-backed at `docs/aigora/feedback-draft.md`
+covering a real, reproducible bug: every path on aigora.org returns HTTP 200 with
+the HTML shell, so the catalog never loads and agents cannot detect a real
+endpoint. Reproduced twice, hours apart, and confirmed from inside the page.
+
+It needs one thing only I cannot supply: a **contact** (email or Telegram),
+which the form requires and which is public in the PR. Add it, then open the PR
+with `gh`.
 
 Re-check with:
 
