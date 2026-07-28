@@ -105,4 +105,51 @@ await check("session.ts appends the tag rather than replacing the transfer", asy
   );
 });
 
+
+await check("a tag set in the environment reaches the browser bundle", async () => {
+  // The tag is the one thing that cannot be backfilled: it has to be in the
+  // top-up calldata at send time. Every part of that path is testable now
+  // except the value itself, so rehearse it — build with a tag set and prove
+  // it survives into the shipped bundle.
+  //
+  // This has failed before in exactly one way: setting ATTRIBUTION_TAG without
+  // VITE_ATTRIBUTION_TAG, because vite only exposes VITE_-prefixed variables.
+  // The server was configured and every top-up shipped untagged.
+  const { execFileSync } = await import("node:child_process");
+  const { readdirSync, readFileSync, existsSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const root = fileURLToPath(new URL("..", import.meta.url));
+
+  const probe = "celo_testtag0001";
+  execFileSync("npm", ["run", "build"], {
+    cwd: root,
+    stdio: "ignore",
+    timeout: 120_000,
+    env: { ...process.env, ATTRIBUTION_TAG: probe, VITE_ATTRIBUTION_TAG: probe },
+  });
+
+  const assets = `${root}/dist/assets`;
+  assert.ok(existsSync(assets), "no build output");
+  // Count occurrences, not presence. Vite inlines import.meta.env wholesale,
+  // so the tag appears once inside that object even when the code that should
+  // read it does not — a mutation breaking the real reader still left the
+  // bundle "containing" the tag. Two is the honest signal: the env object AND
+  // the constant the page actually uses.
+  const bundleText = readdirSync(assets)
+    .filter((f) => f.endsWith(".js"))
+    .map((f) => readFileSync(`${assets}/${f}`, "utf8"))
+    .join("");
+  const occurrences = bundleText.split(probe).length - 1;
+
+  // Rebuild clean before asserting, so a failure does not leave a test tag in
+  // the tree for a later deploy to pick up.
+  execFileSync("npm", ["run", "build"], { cwd: root, stdio: "ignore", timeout: 120_000 });
+
+  assert.ok(
+    occurrences >= 2,
+    `the tag appears ${occurrences}x in the bundle: it is in the env object but nothing reads it, ` +
+      "so every top-up would ship untagged",
+  );
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
