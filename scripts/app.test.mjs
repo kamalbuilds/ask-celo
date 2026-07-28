@@ -476,7 +476,14 @@ await check("the README's promise about not charging is enforced by code", async
   const { readFileSync } = await import("node:fs");
   const { fileURLToPath } = await import("node:url");
   const readme = readFileSync(fileURLToPath(new URL("../README.md", import.meta.url)), "utf8");
-  if (!/refused before payment/i.test(readme)) return; // promise not made
+  // The promise must be there. Silently passing when the README stops making
+  // it means deleting the claim also deletes its enforcement, and the check
+  // reports green either way.
+  assert.match(
+    readme,
+    /refused before payment/i,
+    "the README no longer promises a free refusal; if that is deliberate, delete this check",
+  );
 
   const ask = (q) =>
     fetch(url("/api/ask"), {
@@ -979,7 +986,7 @@ await check("the drafted X posts fit in a tweet", async () => {
   const { readFileSync, existsSync } = await import("node:fs");
   const { fileURLToPath } = await import("node:url");
   const path = fileURLToPath(new URL("../docs/aigora/x-post.md", import.meta.url));
-  if (!existsSync(path)) return;
+  assert.ok(existsSync(path), "the drafted X post is missing; socialLink is a required field");
   const md = readFileSync(path, "utf8");
 
   const blocks = [...md.matchAll(/```\n([\s\S]*?)```/g)]
@@ -1000,7 +1007,7 @@ await check("the drafts do not quote a live number that will date", async () => 
   const { readFileSync, existsSync } = await import("node:fs");
   const { fileURLToPath } = await import("node:url");
   const path = fileURLToPath(new URL("../docs/aigora/x-post.md", import.meta.url));
-  if (!existsSync(path)) return;
+  assert.ok(existsSync(path), "the drafted X post is missing; socialLink is a required field");
   const md = readFileSync(path, "utf8");
   assert.doesNotMatch(md, /1 USD = \d+/, "a drafted post quotes a live exchange rate");
 });
@@ -1936,6 +1943,38 @@ await check("the README's claim about Bazaar discovery matches the facilitator",
         "If it is live now, register the service and update the note.",
     );
   }
+});
+
+
+await check("no check can silently opt out of its own assertions", async () => {
+  // Twice today a check passed while asserting nothing: one read a schema
+  // field off the wrong path and skipped inside `if (max)`, another returned
+  // early when a doc was absent. Both reported ok. A test that opts out
+  // silently is worse than a missing test, because it certifies.
+  //
+  // A skip is fine when a network dependency is down — that is not our bug —
+  // but it has to say so out loud.
+  const { readFileSync, readdirSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const dir = fileURLToPath(new URL(".", import.meta.url));
+  const offenders = [];
+
+  for (const f of readdirSync(dir).filter((x) => x.endsWith(".test.mjs"))) {
+    const lines = readFileSync(`${dir}/${f}`, "utf8").split("\n");
+    lines.forEach((line, i) => {
+      // A bare `return` inside a check body, with no skip message nearby.
+      if (!/^\s{2}(if \(.*\) )?return;\s*(\/\/.*)?$/.test(line)) return;
+      const nearby = lines.slice(Math.max(0, i - 4), i + 1).join("\n");
+      if (!/skip/i.test(nearby)) {
+        offenders.push(`${f}:${i + 1}  ${line.trim()}`);
+      }
+    });
+  }
+  assert.deepEqual(
+    offenders,
+    [],
+    `checks that return early without announcing a skip:\n  ${offenders.join("\n  ")}`,
+  );
 });
 
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
