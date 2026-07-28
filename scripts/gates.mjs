@@ -22,7 +22,15 @@ import { celo, celoSepolia } from "viem/chains";
 // Defaulting to testnet while production ran mainnet made G1 check the wrong
 // facilitator and G2 "fail" by correctly reporting eip155:42220 — two red
 // gates that were really one wrong assumption in the harness.
-const SELLER_URL = process.env.SELLER_URL ?? "http://localhost:3000";
+// Default to the deployed service, not localhost. Run bare from a clone this
+// reported "fetch failed" for G2, which reads as a broken gate rather than
+// "there is no server on port 3000 because you did not start one".
+const { readFileSync: _readFileSync, existsSync: _existsSync } = await import("node:fs");
+const _state = _existsSync(".submission.json")
+  ? JSON.parse(_readFileSync(".submission.json", "utf8"))
+  : {};
+const SELLER_URL =
+  process.env.SELLER_URL ?? _state.liveUrl ?? "https://ask-celo.vercel.app";
 const NETWORK = await fetch(`${SELLER_URL}/api/health`, { signal: AbortSignal.timeout(15_000) })
   .then((r) => r.json())
   .then((h) => (h.network === "mainnet" ? "mainnet" : "testnet"))
@@ -33,8 +41,10 @@ const { NETWORKS } = await import("../src/config.ts");
 const CFG = NETWORKS[NETWORK];
 
 const SELLER = SELLER_URL;
-const PAY_TO = process.env.SELLER_PAY_TO;
-const TAG = process.env.ATTRIBUTION_TAG;
+// Same source as SELLER_URL: the deployed state file already knows the payTo,
+// so a bare run reports real settlement counts instead of "not set".
+const PAY_TO = process.env.SELLER_PAY_TO ?? _state.payTo;
+const TAG = process.env.ATTRIBUTION_TAG ?? _state.attributionTag;
 
 let pass = 0;
 let ran = 0;
@@ -67,7 +77,11 @@ await gate(1, `facilitator supports exact on ${CFG.caip}`, async () => {
 
 // G2 — unpaid request must be exactly 402, and the challenge must name our payTo.
 await gate(2, "seller returns a well-formed 402 challenge", async () => {
-  const res = await fetch(`${SELLER}/api/ask`, { method: "POST", body: "{}" });
+  const res = await fetch(`${SELLER}/api/ask`, { method: "POST", body: "{}" }).catch((e) => {
+    throw new Error(
+      `${SELLER} is not reachable (${e.message}). Set SELLER_URL, or run \`npm run seller\` first.`,
+    );
+  });
   if (res.status !== 402) throw new Error(`expected 402, got ${res.status}`);
   const header = res.headers.get("payment-required");
   if (!header) throw new Error("no payment-required header");
