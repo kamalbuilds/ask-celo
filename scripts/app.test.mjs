@@ -236,7 +236,10 @@ await check("every command and link in the docs exists", async () => {
   const root = fileURLToPath(new URL("..", import.meta.url));
   const pkg = JSON.parse(readFileSync(`${root}/package.json`, "utf8"));
 
+  // A fixed list, not a glob: assert every entry still exists rather than a
+  // count, since the failure here is a doc being renamed out from under it.
   const docs = ["README.md", "STATUS.md", "docs/TRY-IT.md", "docs/GO-LIVE.md"];
+  assert.ok(docs.length >= 4, `the doc list shrank to ${docs.length}`);
   for (const doc of docs) {
     const text = readFileSync(`${root}/${doc}`, "utf8");
 
@@ -454,6 +457,7 @@ await check("the docs do not quote a test count that can go stale", async () => 
       e.isDirectory() ? walk(`${dir}/${e.name}`, `${prefix}${e.name}/`) : `${prefix}${e.name}`,
     );
   const docs = ["README.md", "STATUS.md", ...walk(`${root}/docs`, "docs/")];
+  assert.ok(docs.length >= 6, `only ${docs.length} docs found; this check would be near-vacuous`);
   const stale = [];
   for (const d of docs) {
     const text = readFileSync(`${root}/${d}`, "utf8");
@@ -488,6 +492,7 @@ await check("the price in the docs is the price the server charges", async () =>
       e.isDirectory() ? walk(`${dir}/${e.name}`, `${prefix}${e.name}/`) : `${prefix}${e.name}`,
     );
   const docs = ["README.md", "STATUS.md", ...walk(`${root}/docs`, "docs/")];
+  assert.ok(docs.length >= 6, `only ${docs.length} docs found; this check would be near-vacuous`);
   const wrong = [];
   for (const d of docs) {
     for (const m of readFileSync(`${root}/${d}`, "utf8").matchAll(/\$0\.\d+ (per|a) question/g)) {
@@ -638,6 +643,7 @@ await check("every tx hash cited in the docs names its chain", async () => {
       e.isDirectory() ? walk(`${dir}/${e.name}`, `${prefix}${e.name}/`) : `${prefix}${e.name}`,
     );
   const docs = ["README.md", "STATUS.md", ...walk(`${root}/docs`, "docs/")];
+  assert.ok(docs.length >= 6, `only ${docs.length} docs found; this check would be near-vacuous`);
   const unlabelled = [];
   for (const d of docs) {
     const lines = readFileSync(`${root}/${d}`, "utf8").split("\n");
@@ -1484,6 +1490,7 @@ await check("the docs do not quote a rate or benchmark that has already drifted"
   const docs = ["README.md", "STATUS.md", ...walk(`${root}/docs`, "docs/")].filter((f) =>
     f.endsWith(".md"),
   );
+  assert.ok(docs.length >= 6, `only ${docs.length} docs found; this check would be near-vacuous`);
 
   // The live benchmark, from the code that answers with it.
   const { answer } = await import("../src/inference.ts");
@@ -1558,6 +1565,7 @@ await check("every command and link in the docs exists", async () => {
   const docs = ["README.md", "STATUS.md", ...walk(`${root}/docs`, "docs/")].filter((f) =>
     f.endsWith(".md"),
   );
+  assert.ok(docs.length >= 6, `only ${docs.length} docs found; this check would be near-vacuous`);
   const dead = [];
   for (const d of docs) {
     for (const m of readFileSync(`${root}/${d}`, "utf8").matchAll(/\]\((?!https?:\/\/|mailto:)([^)#]+)/g)) {
@@ -1643,6 +1651,7 @@ await check("every curl the docs print actually works", async () => {
   const docs = ["README.md", "STATUS.md", ...walk(`${root}/docs`, "docs/")].filter((f) =>
     f.endsWith(".md"),
   );
+  assert.ok(docs.length >= 6, `only ${docs.length} docs found; this check would be near-vacuous`);
 
   const failures = [];
   for (const d of docs) {
@@ -1697,6 +1706,7 @@ await check("the docs do not tell a reader to cd into a directory that does not 
   const docs = ["README.md", "STATUS.md", ...walk(`${root}/docs`, "docs/")].filter((f) =>
     f.endsWith(".md"),
   );
+  assert.ok(docs.length >= 6, `only ${docs.length} docs found; this check would be near-vacuous`);
 
   const bad = [];
   for (const d of docs) {
@@ -2073,6 +2083,7 @@ await check("no check passes by looping over an empty list", async () => {
   const docs = ["README.md", "STATUS.md", ...walk(`${root}/docs`, "docs/")].filter((f) =>
     f.endsWith(".md"),
   );
+  assert.ok(docs.length >= 6, `only ${docs.length} docs found; this check would be near-vacuous`);
   assert.ok(docs.length >= 6, `only ${docs.length} docs found; the doc checks would be near-vacuous`);
 
   const { MENTO_MAINNET, TOPIC_EXAMPLES } = await import("../src/inference.ts");
@@ -2316,6 +2327,8 @@ await check("no network call in a request path is unbounded", async () => {
   const root = fileURLToPath(new URL("..", import.meta.url));
 
   const files = ["src/app.ts", "src/refund.ts", "src/inference.ts", "src/session.ts", "web/main.ts"];
+  const { existsSync: fileExists } = await import("node:fs");
+  assert.ok(files.every((f) => fileExists(`${root}/${f}`)), "a file this check scans has moved");
   const unbounded = [];
   for (const f of files) {
     const src = readFileSync(`${root}/${f}`, "utf8");
@@ -2753,6 +2766,44 @@ await check("no doc check matches a phrase that a line break would split", async
     fragile,
     [],
     `these match literal spaces against wrapped markdown, so reflowing a paragraph silently disables them:\n  ${fragile.join("\n  ")}`,
+  );
+});
+
+
+await check("checks that walk a list assert the list is populated", async () => {
+  // A loop over an empty list passes and proves nothing. Eleven checks here
+  // walk docs, source files or config keys; if any of those lists ever comes
+  // back empty — a moved directory, a renamed export, a filter that stops
+  // matching — the check goes quiet rather than red.
+  //
+  // Rather than police every loop, require the lists that feed them to be
+  // asserted non-empty at the point they are built.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const src = readFileSync(fileURLToPath(new URL("./app.test.mjs", import.meta.url)), "utf8");
+
+  // Strip comments first: this check's own prose mentions the pattern it
+  // looks for, and matched itself. Third time today an explanation tripped the
+  // guard it was explaining.
+  const code = src.replace(/^\s*\/\/.*$/gm, "");
+  // ...and skip the line that builds this list, since the regex literal in it
+  // is itself a "const docs = " occurrence. A check that scans its own source
+  // has to exclude itself or it reports on its own machinery.
+  const docLists = [...code.matchAll(/const docs = [^;]+;/g)].filter(
+    (m) => !m[0].includes("matchAll") && !m[0].includes("[^;"),
+  );
+  assert.ok(docLists.length >= 5, `only ${docLists.length} doc lists found`);
+  const unguarded = docLists.filter((m) => {
+    // Look ahead far enough to clear an explanatory comment. A 200-character
+    // window failed on a list that WAS guarded, just with a comment between —
+    // the same fixed-window trap that produced two false alarms earlier today.
+    const after = code.slice(m.index + m[0].length, m.index + m[0].length + 500);
+    return !/docs\.length/.test(after);
+  });
+  assert.equal(
+    unguarded.length,
+    0,
+    `${unguarded.length} doc list(s) are walked without asserting they are non-empty`,
   );
 });
 
