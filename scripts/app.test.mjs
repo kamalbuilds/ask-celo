@@ -2108,5 +2108,32 @@ await check("no external URL is fetched twice in one run", async () => {
   );
 });
 
+
+await check("health reports settlement credits without blocking on them", async () => {
+  // Settlement stops dead at zero facilitator credits, and the symptom is a
+  // failing paywall rather than anything that says "out of credit". 500 left
+  // means this service silently stops selling after 500 answers.
+  //
+  // The number must be visible, and fetching it must never delay or fail a
+  // health check: an unrelated third-party API should not be able to take the
+  // service's own status endpoint down with it.
+  const t0 = Date.now();
+  const first = await fetch(url("/api/health")).then((r) => r.json());
+  const elapsed = Date.now() - t0;
+  assert.ok("settlementCredits" in first, "health does not report settlement credits");
+  assert.ok(elapsed < 2000, `health took ${elapsed}ms: it is blocking on the credit lookup`);
+
+  // The refresh is fire-and-forget, so the value arrives on a later call.
+  await new Promise((r) => setTimeout(r, 2500));
+  const later = await fetch(url("/api/health")).then((r) => r.json());
+  const credits = later.settlementCredits;
+  if (credits?.mainnet !== undefined) {
+    assert.ok(typeof credits.mainnet === "number", "mainnet credits are not a number");
+    assert.ok(credits.checkedAt, "the credit reading carries no timestamp, so staleness is invisible");
+  } else {
+    console.log("  skip  credit API did not answer in time");
+  }
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();

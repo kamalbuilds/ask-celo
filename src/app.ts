@@ -49,6 +49,49 @@ const isAddress = (v: string) => /^0x[a-fA-F0-9]{40}$/.test(v);
 // knows the limit before it sends.
 const MAX_QUESTION_CHARS = 500;
 
+
+/**
+ * Facilitator credit balance, polled in the background.
+ *
+ * Settlement stops the moment this hits zero, and the symptom is a failing
+ * paywall rather than anything that says "out of credit". A health field
+ * cannot be a blocking upstream call, so this refreshes on a timer and the
+ * endpoint reads the last known value.
+ */
+let credits: { mainnet?: number; testnet?: number; checkedAt?: string } = {};
+let lastCreditCheck = 0;
+
+/**
+ * Read the cached balance, and trigger a refresh if it is stale.
+ *
+ * Deliberately not awaited: the first health call after a cold start returns
+ * an empty object and the next one has the number. A serverless function has
+ * no reliable place to run a timer, and blocking health on a third-party API
+ * trades a real problem for a worse one.
+ */
+const creditBalance = () => {
+  if (Date.now() - lastCreditCheck > 60_000) {
+    lastCreditCheck = Date.now();
+    void refreshCredits();
+  }
+  return credits;
+};
+
+async function refreshCredits() {
+  const payTo = process.env.SELLER_PAY_TO || undefined;
+  if (!payTo) return;
+  try {
+    const res = await fetch(`https://x402.celo.org/api/account?address=${payTo}`, {
+      signal: AbortSignal.timeout(10_000),
+    });
+    const body = (await res.json()) as { balances?: { mainnet?: number; testnet?: number } };
+    credits = { ...body.balances, checkedAt: new Date().toISOString() };
+  } catch {
+    // Never let a credit check affect the service. A stale number is fine; a
+    // health endpoint that fails because an unrelated API is slow is not.
+  }
+}
+
 export function createApp() {
   const PAY_TO = getAddress(required("SELLER_PAY_TO", isAddress));
   required("X402_API_KEY", (v) => v.startsWith("x402_"));
@@ -233,6 +276,11 @@ export function createApp() {
       docs: "https://github.com/kamalbuilds/ask-celo/blob/master/docs/TRY-IT.md",
       // Sales can keep working while attribution quietly stops. Surface it.
       receipts: { enabled: receiptsEnabled, ...receiptStats },
+      // Settlement stops dead when facilitator credits hit zero, and the
+      // failure looks like a broken paywall rather than an empty account.
+      // Reported here so it is visible before it bites, and refreshed in the
+      // background so a slow upstream never delays a health check.
+      settlementCredits: creditBalance(),
     }),
   );
 
