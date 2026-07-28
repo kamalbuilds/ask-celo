@@ -152,7 +152,19 @@ $("topup-btn").addEventListener("click", async () => {
       !arrived,
     );
   } catch (e: any) {
-    setStatus("topup-status", e?.message?.includes("reject") ? "Cancelled." : "Could not add credit. Try again.", true);
+    // The wallet's own reason is the actionable part, and this threw all of
+    // it away except "reject". "Could not add credit. Try again." on an
+    // insufficient balance is advice that will fail the same way forever.
+    const raw = typeof e?.message === "string" ? e.message : "";
+    const said = /reject|denied|cancell?ed|user refused/i.test(raw)
+      ? "Cancelled."
+      : /insufficient|exceeds balance|not enough/i.test(raw)
+        ? "Not enough USDC in your wallet for that amount. Try a smaller one."
+        : raw && raw.length < 400
+          ? `Could not add credit: ${raw}`
+          : "Could not add credit. Try again.";
+    setStatus("topup-status", said, true);
+    console.error(e);
   } finally {
     btn.disabled = false;
   }

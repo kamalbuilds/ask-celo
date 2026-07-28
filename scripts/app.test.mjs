@@ -2183,5 +2183,35 @@ await check("the client can display every refund message the server sends", asyn
   );
 });
 
+
+await check("every failure path shows the reason rather than a shrug", async () => {
+  // The top-up handler discarded every wallet error except "reject" and said
+  // "Could not add credit. Try again." An insufficient balance is not a
+  // try-again problem: that advice fails identically forever, and the wallet
+  // already knew why.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const main = readFileSync(fileURLToPath(new URL("../web/main.ts", import.meta.url)), "utf8");
+
+  for (const id of ["topup-btn", "sweep"]) {
+    const start = main.indexOf(`$("${id}").addEventListener`);
+    assert.ok(start > 0, `no handler for ${id}`);
+    const rest = main.slice(start);
+    const handler = rest.slice(0, rest.indexOf("\n});"));
+    // The handler must reference the caught error's message, not only a
+    // hardcoded fallback.
+    assert.match(
+      handler,
+      /e\?\.message|e\.message/,
+      `${id} throws away the reason and shows a generic message`,
+    );
+  }
+
+  // Insufficient funds is the most likely top-up failure and deserves its own
+  // wording, since "try again" is wrong advice for it.
+  const topup = main.slice(main.indexOf('$("topup-btn").addEventListener'));
+  assert.match(topup.slice(0, 3000), /insufficient/i, "an insufficient balance is not handled distinctly");
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
