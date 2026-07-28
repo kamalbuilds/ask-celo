@@ -114,6 +114,19 @@ Verified live on a 360x640 phone: tap an example chip, tap Ask, and a visitor
 with an empty wallet gets a real answer. Link previews, the icon, 44px touch
 targets and the screen-reader live region are all serving.
 
+## What an agent sees
+
+The service is callable by a machine without reading any prose:
+
+- `GET /api/health` states what it sells, seven example questions, the price,
+  the asset, and that unanswerable questions are free.
+- The 402 challenge carries an x402 **Bazaar discovery extension** declaring
+  the method, the JSON body shape, the `q` field and its 500-character limit,
+  and an example answer. An agent that finds the endpoint can call it correctly
+  on the first try.
+
+Both verified against production, not just locally.
+
 ## How much of this is actually tested
 
 Four suites plus the Solidity tests, and `npm test` prints the current count.
