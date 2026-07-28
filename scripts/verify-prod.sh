@@ -11,8 +11,20 @@ set -euo pipefail
 echo "=== production health"
 curl -s --max-time 20 https://ask-celo.vercel.app/api/health
 echo
+echo "=== free paths (a payer is never charged for a non-answer)"
+printf ' off-topic   '
+curl -s -o /dev/null -w 'HTTP %{http_code} (want 400)\n' --max-time 20 -X POST https://ask-celo.vercel.app/api/ask \
+  -H 'content-type: application/json' -d '{"q":"who won the world cup"}'
+printf ' about us    '
+curl -s -o /dev/null -w 'HTTP %{http_code} (want 200)\n' --max-time 20 -X POST https://ask-celo.vercel.app/api/ask \
+  -H 'content-type: application/json' -d '{"q":"is this a scam"}'
+printf ' empty body  '
+curl -s -o /dev/null -w 'HTTP %{http_code} in %{time_total}s (want fast, not 30s)\n' --max-time 25 -X POST https://ask-celo.vercel.app/api/ask
+
 echo "=== 402 challenge terms"
-curl -si --max-time 20 -X POST https://ask-celo.vercel.app/api/ask -H 'content-type: application/json' -d '{"q":"x"}' \
+# Must be a question we can answer: the others are refused for free and never
+# reach the paywall.
+curl -si --max-time 20 -X POST https://ask-celo.vercel.app/api/ask -H 'content-type: application/json' -d '{"q":"dollar to shillings"}' \
  | grep -i '^payment-required' | cut -d' ' -f2 | tr -d '\r' | base64 -d \
  | python3 -c "import json,sys;a=json.load(sys.stdin)['accepts'][0];print(' network',a['network']);print(' asset  ',a['asset']);print(' amount ',a['amount']);print(' payTo  ',a['payTo'])"
 echo "=== refund endpoint guards bad input"
