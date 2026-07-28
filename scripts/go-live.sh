@@ -19,12 +19,15 @@ BAL_CELO=$(cast from-wei "$BAL")
 echo "deployer: $ADDR"
 echo "balance:  $BAL_CELO CELO"
 
-# Deploy + mint is roughly 0.17 CELO at 200 gwei; require headroom so we do not
-# strand halfway with a contract deployed and no identity minted.
-if [ "$(echo "$BAL_CELO < 0.3" | bc -l)" = "1" ]; then
+# Measured on Celo mainnet at 202.5 gwei: the deploy estimates 330,598 gas
+# (0.067 CELO) and the 8004 mint 203,424 (0.041), so 0.108 CELO all in. The
+# floor is 0.15 for headroom against a gas spike, and the ask is 0.2 rather
+# than the 0.5 this used to request — asking for five times the need is its
+# own kind of wrong number.
+if [ "$(echo "$BAL_CELO < 0.15" | bc -l)" = "1" ]; then
   echo
-  echo "Not enough gas. Send ~0.5 CELO to $ADDR and re-run."
-  echo "That covers the contract, the 8004 mint, and the first receipts."
+  echo "Not enough gas. Send ~0.2 CELO to $ADDR and re-run."
+  echo "Measured cost is about 0.11 CELO: the contract, the 8004 mint, and headroom."
   exit 1
 fi
 

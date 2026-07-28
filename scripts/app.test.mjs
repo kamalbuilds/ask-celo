@@ -702,5 +702,49 @@ await check("the ERC-8004 registration would actually succeed", async () => {
   assert.ok(typeof res.result === "bigint", "registry returned no agent id");
 });
 
+
+await check("the contract is deployable and the funding ask matches its cost", async () => {
+  // go-live spends gas from a wallet funded by hand. The bytecode had never
+  // been estimated against mainnet, and the documented cost was a guess that
+  // ran about 5x high — asking someone for five times what a thing needs is
+  // its own kind of wrong number about money.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const { createPublicClient, http } = await import("viem");
+  const { NETWORKS } = await import("../src/config.ts");
+
+  const artifactPath = fileURLToPath(new URL("../out/AskReceipts.sol/AskReceipts.json", import.meta.url));
+  let artifact;
+  try {
+    artifact = JSON.parse(readFileSync(artifactPath, "utf8"));
+  } catch {
+    console.log("  skip  contract not built (run forge build)");
+    return;
+  }
+
+  const cfg = NETWORKS.mainnet;
+  const client = createPublicClient({
+    chain: cfg.chain,
+    transport: http(cfg.rpc, { retryCount: 3, retryDelay: 300 }),
+  });
+  const recorder = "E626fC73E7FcE36a2371D7B4f3482Aed17308A77";
+  const gas = await client
+    .estimateGas({
+      account: `0x${recorder}`,
+      data: `${artifact.bytecode.object}000000000000000000000000${recorder}`,
+    })
+    .catch((e) => ({ error: e.shortMessage ?? e.message }));
+  assert.ok(typeof gas === "bigint", `the contract would not deploy: ${gas.error}`);
+
+  // The documented floor must cover the real cost with headroom.
+  const price = await client.getGasPrice();
+  const celo = (Number(gas) * Number(price)) / 1e18;
+  const goLive = readFileSync(fileURLToPath(new URL("./go-live.sh", import.meta.url)), "utf8");
+  const floor = Number(/BAL_CELO < ([\d.]+)/.exec(goLive)?.[1]);
+  assert.ok(Number.isFinite(floor), "go-live.sh has no balance floor");
+  assert.ok(floor > celo, `floor ${floor} CELO is below the ${celo.toFixed(3)} deploy alone`);
+  assert.ok(floor < celo * 10, `floor ${floor} CELO asks for far more than the ${celo.toFixed(3)} needed`);
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();

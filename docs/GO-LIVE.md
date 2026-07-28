@@ -12,12 +12,18 @@ only remaining gap.
 This is the agent wallet and the `payTo` for every x402 settlement. It already
 holds the facilitator API key's credits (500 mainnet settlements prepaid).
 
+Measured against Celo mainnet by estimating the real calls, not guessed:
+
 | What | Gas | Cost at 202.5 gwei |
 |---|---|---|
-| Deploy `AskReceipts` | ~600k | ~0.12 CELO |
-| Mint ERC-8004 identity | ~250k | ~0.05 CELO |
-| Tagged transactions (headroom) | — | ~0.3 CELO |
-| **Total** | | **~0.5 CELO** (about $0.03) |
+| Deploy `AskReceipts` | 330,598 | 0.067 CELO |
+| Mint ERC-8004 identity | 203,424 | 0.041 CELO |
+| **Total** | **534,022** | **0.108 CELO** (about $0.007) |
+
+Send **~0.2 CELO** for headroom against a gas spike. The earlier figures here
+were estimates that ran about 5x high, and `go-live.sh` asked for 0.5 on the
+strength of them. Both are now the measured numbers, and the script refuses
+below 0.15.
 
 Plus a few dollars of **mainnet USDC** at the same address if you want the agent
 to make real settlements itself rather than only receive them.

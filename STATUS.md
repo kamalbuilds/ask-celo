@@ -23,7 +23,7 @@ cd app
 # 1. Locks the attribution tag. Google sign-in, paste back the short code.
 TELEGRAM_HANDLE=@yourhandle npm run register
 
-# 2. Send ~0.5 CELO to 0xE626fC73E7FcE36a2371D7B4f3482Aed17308A77, then:
+# 2. Send ~0.2 CELO to 0xE626fC73E7FcE36a2371D7B4f3482Aed17308A77, then:
 npm run go-live
 ```
 
