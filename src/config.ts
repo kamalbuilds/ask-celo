@@ -37,7 +37,7 @@ export const NETWORK = env("X402_NETWORK") === "mainnet" ? "mainnet" : "testnet"
  */
 export const MAINNET_RPC = env("CELO_RPC_MAINNET") ?? "https://forno.celo.org";
 
-export const CFG = {
+export const NETWORKS = {
   mainnet: {
     caip: "eip155:42220" as const,
     chain: celo,
@@ -56,7 +56,17 @@ export const CFG = {
     usdcAdapter: "0x4822e58de6f5e485eF90df51C41CE01721331dC0",
     explorer: "https://celo-sepolia.blockscout.com",
   },
-}[NETWORK];
+} as const;
+
+/**
+ * The network this server sells on, chosen at import.
+ *
+ * gates.mjs needs a different network than the environment (it asks the
+ * deployed service which chain it is on, at runtime), so it takes NETWORKS
+ * instead. It used to keep a private copy of this table, which is how it
+ * spent a day checking testnet while production sold on mainnet.
+ */
+export const CFG = NETWORKS[NETWORK];
 
 /**
  * The price of one answer, in one place.

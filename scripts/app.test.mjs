@@ -651,6 +651,20 @@ await check("no source file restates a URL that config already owns", async () =
       offenders.push(`${f}: ${m[1]}`);
     }
   }
+  // Scripts too. gates.mjs and verify-signature.mjs each kept a private copy
+  // of the network table, which is how the scoring harness spent a day
+  // checking testnet while production sold on mainnet.
+  const scripts = fileURLToPath(new URL(".", import.meta.url));
+  for (const f of readdirSync(scripts).filter((f) => f.endsWith(".mjs"))) {
+    const src = readFileSync(`${scripts}/${f}`, "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "");
+    // A CAIP id or the USDC address outside config means a second source of
+    // truth for which chain we are on.
+    for (const m of src.matchAll(/"(eip155:\d+|0xcebA9300[0-9a-fA-F]*)"/g)) {
+      offenders.push(`${f}: ${m[1]}`);
+    }
+  }
   assert.deepEqual(offenders, [], `these restate a URL config owns:\n  ${offenders.join("\n  ")}`);
 });
 

@@ -27,24 +27,10 @@ const NETWORK = await fetch(`${SELLER_URL}/api/health`, { signal: AbortSignal.ti
   .then((r) => r.json())
   .then((h) => (h.network === "mainnet" ? "mainnet" : "testnet"))
   .catch(() => (process.env.X402_NETWORK === "mainnet" ? "mainnet" : "testnet"));
-const CFG = {
-  mainnet: {
-    caip: "eip155:42220",
-    facilitator: "https://api.x402.celo.org",
-    usdc: "0xcebA9300f2b948710d2653dD7B07f33A8B32118C",
-    chain: celo,
-    rpc: "https://forno.celo.org",
-    explorer: "https://celo.blockscout.com",
-  },
-  testnet: {
-    caip: "eip155:11142220",
-    facilitator: "https://api.x402.sepolia.celo.org",
-    usdc: "0x01C5C0122039549AD1493B8220cABEdD739BC44E",
-    chain: celoSepolia,
-    rpc: "https://forno.celo-sepolia.celo-testnet.org",
-    explorer: "https://celo-sepolia.blockscout.com",
-  },
-}[NETWORK];
+// Imported, not restated. This file kept its own copy of the network table
+// and spent a day checking testnet while production sold on mainnet.
+const { NETWORKS } = await import("../src/config.ts");
+const CFG = NETWORKS[NETWORK];
 
 const SELLER = SELLER_URL;
 const PAY_TO = process.env.SELLER_PAY_TO;

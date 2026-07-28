@@ -24,19 +24,9 @@ import { existsSync, readFileSync, writeFileSync, chmodSync } from "node:fs";
 import { privateKeyToAccount, generatePrivateKey } from "viem/accounts";
 import { getAddress } from "viem";
 
-const NETWORK = process.env.X402_NETWORK === "mainnet" ? "mainnet" : "testnet";
-const CFG = {
-  mainnet: {
-    caip: "eip155:42220",
-    facilitator: "https://api.x402.celo.org",
-    usdc: "0xcebA9300f2b948710d2653dD7B07f33A8B32118C",
-  },
-  testnet: {
-    caip: "eip155:11142220",
-    facilitator: "https://api.x402.sepolia.celo.org",
-    usdc: "0x01C5C0122039549AD1493B8220cABEdD739BC44E",
-  },
-}[NETWORK];
+// Imported, not restated: a private copy of this table is how gates.mjs came
+// to check the wrong chain for a day.
+const { CFG, NETWORK } = await import("../src/config.ts");
 
 // A session key exactly as the Mini App generates one: created locally, never
 // funded by anything but a transfer, holding no special status.
