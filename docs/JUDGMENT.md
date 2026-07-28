@@ -158,9 +158,36 @@ entirely without a single failure — while the tag is the whole mechanism by
 which this work gets credited. Mutation testing found in twenty minutes what a
 day of review had missed.
 
-The common thread is that all three defeat confirmation. Reading code shows you
-what it means; running the untested path, comparing the duplicate, and breaking
-the thing on purpose show you what it does.
+A fourth question earned its place later: **"does this value actually reach a
+user?"** It found a class the first three miss, where the code is correct and
+the effect is zero. The free answers were served correctly and sat behind a
+button disabled at a zero balance, unreachable by exactly the people they
+existed for. A refund message explaining that the money was safe was 198
+characters against a client that dropped anything over 120, so the most
+important sentence in the product was replaced by "Try again". A wallet's own
+error reason was discarded for a generic shrug. And an answer rendered below the
+fold on a 360x640 phone, which is the only screen this product targets.
+
+Every one passed its server-side test. The value was produced and then thrown
+away somewhere downstream, which no test of the producer can see.
+
+The common thread is that all four defeat confirmation. Reading code shows you
+what it means; running the untested path, comparing the duplicate, breaking the
+thing on purpose, and following the value to the screen show you what it does.
+
+### The scope trap
+
+Fixing an instance rather than a class left siblings alive, repeatedly. Retry
+was added to one chain-reading client while two others kept none, and the one
+that mattered gated refunds. An empty-string environment default was fixed three
+times before being fixed at the reader, which then found eleven more. A timeout
+was added to the ask path while three other user-facing calls stayed unbounded.
+
+The tell each time was the same: the fix was written where the bug was noticed.
+The habit that works is to write the check for the shape, run it, and let it
+find the rest — which is also how a check written for one file missed a
+750-character "tweet" in another, and how a staleness check matching three words
+missed a fourth.
 
 ### The category tests cannot catch
 
