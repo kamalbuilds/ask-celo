@@ -34,6 +34,22 @@ const LIVE_URL = (() => {
     return "https://ask-celo.vercel.app";
   }
 })();
+
+// One fetch per external URL per run. Health was fetched three times and the
+// facilitator's /supported twice, which is slower and, worse, lets two checks
+// disagree about the same remote state within one run.
+const _remote = new Map();
+const remoteJson = (url, ms = 20_000) => {
+  if (!_remote.has(url)) {
+    _remote.set(
+      url,
+      fetch(url, { signal: AbortSignal.timeout(ms) })
+        .then((r) => r.json())
+        .catch(() => null),
+    );
+  }
+  return _remote.get(url);
+};
 const server = serve({ fetch: createApp().fetch, port: 0 });
 const { port } = server.address();
 const url = (p) => `http://127.0.0.1:${port}${p}`;
@@ -882,11 +898,7 @@ await check("we satisfy the hackathon's own rules", async () => {
 
   if (text.includes("mainnet only") || text.includes("celo-mainnet")) {
     // The live service must actually be on mainnet.
-    const health = await fetch(`${LIVE_URL}/api/health`, {
-      signal: AbortSignal.timeout(20_000),
-    })
-      .then((r) => r.json())
-      .catch(() => null);
+    const health = await remoteJson(`${LIVE_URL}/api/health`);
     if (health) {
       assert.equal(health.network, "mainnet", "the rule is mainnet only and we are not on mainnet");
       // From config, not a literal: the duplicate-constant check flagged my
@@ -1321,11 +1333,7 @@ await check("the network flag means what it says", async () => {
     );
   }
   // The live service must agree with its own config.
-  const health = await fetch(`${LIVE_URL}/api/health`, {
-    signal: AbortSignal.timeout(20_000),
-  })
-    .then((r) => r.json())
-    .catch(() => null);
+  const health = await remoteJson(`${LIVE_URL}/api/health`);
   if (health) {
     assert.equal(
       health.caip,
@@ -1527,9 +1535,7 @@ await check("the terms are readable without paying, as TRY-IT promises", async (
   // The doc tells a buyer they can read the price before spending anything.
   // Two ways, both of which must work: plain JSON on health, and the 402
   // challenge header.
-  const health = await fetch(`${LIVE_URL}/api/health`, { signal: AbortSignal.timeout(20_000) })
-    .then((r) => r.json())
-    .catch(() => null);
+  const health = await remoteJson(`${LIVE_URL}/api/health`);
   if (!health) {
     console.log("  skip  live service unreachable");
     return;
@@ -1889,11 +1895,7 @@ await check("the facilitator's advertised extensions match what we rely on", asy
   // If that ever changes, this check is where we find out, rather than
   // discovering a whole attribution path was silently doing nothing.
   const { NETWORKS } = await import("../src/config.ts");
-  const supported = await fetch(`${NETWORKS.mainnet.facilitator}/supported`, {
-    signal: AbortSignal.timeout(20_000),
-  })
-    .then((r) => r.json())
-    .catch(() => null);
+  const supported = await remoteJson(`${NETWORKS.mainnet.facilitator}/supported`);
   if (!supported) {
     console.log("  skip  facilitator unreachable");
     return;
@@ -2077,6 +2079,33 @@ await check("a failing check fails the whole build", async () => {
   } finally {
     unlinkSync(scratch);
   }
+});
+
+
+await check("no external URL is fetched twice in one run", async () => {
+  // Health was fetched three times and the facilitator's /supported twice.
+  // Slower, and worse: two checks could observe different remote state within
+  // a single run and disagree, which is the hardest kind of flake to read.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const src = readFileSync(fileURLToPath(new URL("./app.test.mjs", import.meta.url)), "utf8")
+    .replace(/^\s*\/\/.*$/gm, "");
+
+  const counts = new Map();
+  for (const m of src.matchAll(/(?:remoteJson|fetch)\(\s*`?(https?:\/\/[^`"'\s,)]+|\$\{[A-Za-z_.]+\}[^`"'\s,)]*)/g)) {
+    const key = m[1].replace(/\?.*$/, "");
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+  const repeated = [...counts].filter(([u, n]) => n > 1 && !u.includes("api/ask"));
+  const uncached = repeated.filter(([u]) => {
+    const uses = [...src.matchAll(new RegExp(`(remoteJson|fetch)\\(\\s*\`?${u.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "g"))];
+    return uses.some((x) => x[1] === "fetch");
+  });
+  assert.deepEqual(
+    uncached,
+    [],
+    `these external URLs are fetched more than once without the cache:\n  ${uncached.map(([u, n]) => `${u} (${n}x)`).join("\n  ")}`,
+  );
 });
 
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
