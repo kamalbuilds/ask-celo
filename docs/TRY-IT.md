@@ -75,7 +75,9 @@ in plain JSON if you want to read it before paying.
 | `how much cKES exists` | live supply of each local stablecoin |
 | `how fast are blocks` | current height and finality |
 
-Every answer is read at the moment you ask.
+Every answer is read at the moment you ask, never from a cache. Where the
+underlying feed can lag — Mento's oracle updates the local-currency rates on
+its own schedule — the answer says how old it is.
 
 ## Inspect it without paying
 

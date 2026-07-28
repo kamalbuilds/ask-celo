@@ -3033,5 +3033,41 @@ await check("the settlement figures we cite are still directionally true", async
   );
 });
 
+
+await check("the docs do not claim answers can never be stale", async () => {
+  // The README said "none of it can be stale". That is true of the read and
+  // false of the feed: Mento's local-currency oracles can sit ten hours
+  // behind, and one has never reported. The code discloses this now, so the
+  // prose must not contradict it.
+  const { readFileSync, readdirSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const walk = (dir, prefix) =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory() ? walk(`${dir}/${e.name}`, `${prefix}${e.name}/`) : `${prefix}${e.name}`,
+    );
+  const docs = ["README.md", "STATUS.md", ...walk(`${root}/docs`, "docs/")].filter((f) =>
+    f.endsWith(".md"),
+  );
+  assert.ok(docs.length >= 6, `only ${docs.length} docs found; this check would be near-vacuous`);
+
+  const overclaims = [];
+  for (const d of docs) {
+    const flat = readFileSync(`${root}/${d}`, "utf8").replace(/\s+/g, " ");
+    if (/(none of it|nothing) can be stale/i.test(flat)) overclaims.push(`${d}: claims nothing can be stale`);
+    if (/always (current|fresh)/i.test(flat)) overclaims.push(`${d}: claims data is always current`);
+  }
+  assert.deepEqual(overclaims, [], `docs overclaim freshness:\n  ${overclaims.join("\n  ")}`);
+
+  // And the README must explain the distinction, since it is the page a judge
+  // reads before anything else.
+  const readme = readFileSync(`${root}/README.md`, "utf8").replace(/\s+/g, " ");
+  assert.match(
+    readme,
+    /not the same as fresh|says how old|feed can lag/i,
+    "the README does not distinguish a live read from a fresh feed",
+  );
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();

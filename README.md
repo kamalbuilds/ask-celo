@@ -27,7 +27,14 @@ publishing it.
 Two questions with real stakes for the people MiniPay serves: what is my money
 worth, and what will it cost to send it. Also exchange rates across five local
 currencies, live stablecoin supply, and block finality. Each answer is read
-from the chain at the moment you ask, so none of it can be stale.
+from the chain at the moment you ask, never from a cache.
+
+Read live is not the same as fresh, and the answers say which they are. Supply,
+gas and block data come straight from the chain. Exchange rates come from
+Mento's oracle, which updates on its own schedule: cUSD refreshes every few
+minutes, the local-currency feeds can sit hours behind, and one has never
+reported at all. When a feed is stale the answer says so, because a
+ten-hour-old rate presented as current is worse than no rate.
 
 Payment is x402 stablecoin micropayments, settled on-chain in about a second.
 
