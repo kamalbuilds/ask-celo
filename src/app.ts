@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { paymentMiddleware, x402ResourceServer } from "@x402/hono";
+import { declareDiscoveryExtension } from "@x402/extensions";
 import { ExactEvmScheme } from "@x402/evm/exact/server";
 import { HTTPFacilitatorClient } from "@x402/core/server";
 import { getAddress } from "viem";
@@ -43,6 +44,11 @@ function required(key: string, looksValid: (v: string) => boolean = Boolean): st
 
 const isAddress = (v: string) => /^0x[a-fA-F0-9]{40}$/.test(v);
 
+// Long enough for any real question, short enough that a large body cannot be
+// used as free compute. Declared in the discovery schema too, so an agent
+// knows the limit before it sends.
+const MAX_QUESTION_CHARS = 500;
+
 export function createApp() {
   const PAY_TO = getAddress(required("SELLER_PAY_TO", isAddress));
   required("X402_API_KEY", (v) => v.startsWith("x402_"));
@@ -78,6 +84,29 @@ export function createApp() {
         },
       ],
       description: "One question answered, paid per call.",
+      // Bazaar discovery: declares the exact request shape in the 402
+      // challenge, so an agent that finds this endpoint knows how to call it
+      // without reading our docs or paying to experiment. The x402 packages
+      // ship the standard; nothing was using it.
+      extensions: declareDiscoveryExtension({
+        // `method` is omitted from the public type: it is taken from the route
+        // key ("POST /api/ask") rather than restated here.
+        bodyType: "json",
+        input: { q: "what is a dollar worth in kenyan shillings" },
+        inputSchema: {
+          properties: {
+            q: {
+              type: "string",
+              maxLength: MAX_QUESTION_CHARS,
+              description:
+                "A question about money on Celo: exchange rates, transfer costs, " +
+                "remittance comparisons, stablecoin supply, or block finality.",
+            },
+          },
+          required: ["q"],
+        },
+        output: { example: { answer: "1 USD = 129 KES, from Mento's on-chain oracle." } },
+      }),
     },
   };
 
@@ -108,10 +137,6 @@ export function createApp() {
       // A malformed receipt header must never affect the paid response.
     }
   });
-
-  // Long enough for any real question, short enough that a large body cannot
-  // be used as free compute.
-  const MAX_QUESTION_CHARS = 500;
 
   // Refuse an unanswerable question BEFORE the payment middleware sees it.
   // The middleware charges on the way in, so without this the user pays $0.01

@@ -1807,5 +1807,41 @@ await check("health tells an agent what the service sells, not only what it cost
   assert.deepEqual(broken, [], `health advertises questions the service refuses:\n  ${broken.join("\n  ")}`);
 });
 
+
+await check("the 402 challenge declares how to call this endpoint", async () => {
+  // x402 ships a discovery standard (Bazaar) and nothing was using it. Without
+  // it an agent that finds this endpoint knows the price and nothing else: not
+  // the method, not the body shape, not the field name. It has to read our
+  // docs, which a machine will not do, or pay to experiment.
+  const res = await fetch(url("/api/ask"), {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ q: "dollar to shillings" }),
+  });
+  assert.equal(res.status, 402);
+  const challenge = JSON.parse(
+    Buffer.from(res.headers.get("payment-required"), "base64").toString(),
+  );
+  const bazaar = challenge.extensions?.bazaar;
+  assert.ok(bazaar, "the challenge declares no discovery extension");
+  assert.equal(bazaar.info.input.bodyType, "json");
+  assert.ok(bazaar.info.input.body?.q, "the declared body does not name the q field");
+
+  // The advertised example must be answerable, and must fit the limit it
+  // declares: a schema that contradicts the server is worse than none.
+  const { canAnswer } = await import("../src/inference.ts");
+  assert.ok(canAnswer(bazaar.info.input.body.q), "the declared example question would be refused");
+  const max = bazaar.schema?.properties?.input?.properties?.body?.properties?.q?.maxLength;
+  if (max) {
+    const tooLong = "dollar to shillings ".repeat(Math.ceil(max / 10));
+    const rejected = await fetch(url("/api/ask"), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ q: tooLong }),
+    });
+    assert.equal(rejected.status, 400, "the declared maxLength is not enforced");
+  }
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
