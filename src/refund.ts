@@ -79,7 +79,24 @@ export async function settleRefund(signature: string, authorization: Record<stri
 
   const body = await res.json().catch(() => ({}));
   if (!res.ok || body.success === false) {
-    throw new Error(body.errorReason ?? body.invalidReason ?? `settle failed (${res.status})`);
+    const reason = body.errorReason ?? body.invalidReason ?? `settle failed (${res.status})`;
+    // A refund is the one request where the user is already anxious: they are
+    // asking for their money back. The facilitator's raw reason is written for
+    // an integrator, so translate the two that a user can actually act on and
+    // pass the rest through rather than inventing a story.
+    if (/credit|quota|insufficient.*(balance|fund).*facilitator|payment required/i.test(reason)) {
+      throw new Error(
+        "This service cannot settle refunds right now (its facilitator credit ran out). " +
+          "Your money is still yours and still in your session key: nothing was moved. " +
+          "Try again shortly, or contact the operator.",
+      );
+    }
+    if (/expired|deadline|validBefore/i.test(reason)) {
+      throw new Error(
+        "That refund authorization expired before it settled. Nothing moved. Tap Return unused credit again.",
+      );
+    }
+    throw new Error(reason);
   }
   return body.transaction ?? body.txHash ?? null;
 }

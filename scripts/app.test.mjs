@@ -2135,5 +2135,25 @@ await check("health reports settlement credits without blocking on them", async 
   }
 });
 
+
+await check("a failed refund says the money is still safe", async () => {
+  // The refund path passed the facilitator's raw errorReason to the user.
+  // That text is written for an integrator, and it reaches someone who has
+  // just asked for their money back and is now reading an error. The two
+  // cases they can act on are worth translating; the rest pass through
+  // rather than being invented.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const src = readFileSync(fileURLToPath(new URL("../src/refund.ts", import.meta.url)), "utf8");
+
+  assert.match(src, /credit\|quota/, "a credit exhaustion failure is not translated");
+  assert.match(src, /nothing was moved|Nothing moved/i, "a failed refund never says the money is safe");
+  assert.match(src, /expired/i, "an expired authorization is not translated");
+
+  // And it must not swallow reasons it does not recognise: an unknown failure
+  // has to keep its detail or nobody can debug it.
+  assert.match(src, /throw new Error\(reason\)/, "unrecognised refund failures lose their reason");
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
