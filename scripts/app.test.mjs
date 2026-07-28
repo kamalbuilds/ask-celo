@@ -359,5 +359,31 @@ await check("the free answer only claims things that are true", async () => {
   }
 });
 
+
+await check("the MiniPay path never calls a method MiniPay lacks", async () => {
+  // The whole product rests on this: MiniPay implements neither personal_sign
+  // nor eth_signTypedData, so any wallet call that needs a signature is a dead
+  // end for millions of users. Verified in a real browser with a locked-down
+  // MiniPay provider — top-up used eth_sendTransaction only. This asserts the
+  // source keeps that property, so a refactor cannot quietly reintroduce a
+  // signature prompt on the one path MiniPay users must take.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const session = readFileSync(fileURLToPath(new URL("../src/session.ts", import.meta.url)), "utf8");
+
+  // Everything the page asks the INJECTED wallet to do (window.ethereum).
+  const walletCalls = [...session.matchAll(/method:\s*"([a-zA-Z_0-9]+)"/g)].map((m) => m[1]);
+  const forbidden = walletCalls.filter((m) => /^personal_sign|^eth_sign/.test(m));
+  assert.deepEqual(
+    forbidden,
+    [],
+    `these ask MiniPay for a signature it cannot give: ${forbidden.join(", ")}`,
+  );
+  assert.ok(
+    walletCalls.includes("eth_sendTransaction"),
+    "the top-up no longer uses a plain transfer",
+  );
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
