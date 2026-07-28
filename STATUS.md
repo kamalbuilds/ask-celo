@@ -160,6 +160,22 @@ knows rather than what it hopes:
 - a chain read that fails after payment returns 502 with "your payment was not
   taken", because the x402 middleware cancels settlement on any 4xx or 5xx
 
+## Reproduced from a bare clone
+
+Not "works on my machine". Cloned fresh from GitHub, `npm install`, then every
+documented command:
+
+| | |
+|---|---|
+| `npm test` | every suite and the contract tests, count printed by the run |
+| `npm run verify` | production healthy on every path |
+| `npm run score` | 34/100, with the blockers named |
+| `npm run gates` | 3/5, the two failures naming the funding they need |
+| `npm run fresh` | clones and follows the README as a stranger |
+
+`gates` exits non-zero by design when a gate cannot run; the two that fail need
+a funded wallet, and both say so rather than looking broken.
+
 ## How much of this is actually tested
 
 Four suites plus the Solidity tests, and `npm test` prints the current count.
