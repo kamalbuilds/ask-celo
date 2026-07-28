@@ -938,5 +938,39 @@ await check("the link preview has an image that exists and is the right size", a
   }
 });
 
+
+await check("the drafted X posts fit in a tweet", async () => {
+  // socialLink is required to publish, and a post that will not send is not a
+  // draft, it is a to-do. X counts every URL as 23 characters regardless of
+  // its real length, so eyeballing the string is wrong in both directions.
+  const { readFileSync, existsSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const path = fileURLToPath(new URL("../docs/aigora/x-post.md", import.meta.url));
+  if (!existsSync(path)) return;
+  const md = readFileSync(path, "utf8");
+
+  const blocks = [...md.matchAll(/```\n([\s\S]*?)```/g)]
+    .map((m) => m[1].trim())
+    .filter((b) => !b.startsWith("python3") && !b.startsWith("cd ") && !b.includes("import json"));
+  assert.ok(blocks.length >= 1, "no drafted posts found");
+
+  for (const b of blocks) {
+    const counted = b.replace(/https?:\/\/\S+/g, "x".repeat(23));
+    assert.ok(counted.length <= 280, `a drafted post is ${counted.length} chars, over the 280 limit`);
+  }
+});
+
+await check("the drafts do not quote a live number that will date", async () => {
+  // An early draft said "1 USD = 130 KES". It was 129 an hour later. A rate in
+  // a permanent post is a claim that goes stale the moment it is posted, and
+  // the whole selling point is that the answer is read live.
+  const { readFileSync, existsSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const path = fileURLToPath(new URL("../docs/aigora/x-post.md", import.meta.url));
+  if (!existsSync(path)) return;
+  const md = readFileSync(path, "utf8");
+  assert.doesNotMatch(md, /1 USD = \d+/, "a drafted post quotes a live exchange rate");
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();

@@ -81,6 +81,21 @@ node scripts/register.mjs submit             # publishes the entry
 empty. Only `telegram` is required to register; the rest are required to
 publish, and can be filled any time before Aug 3.
 
+Everything a required field needs is drafted and checked in:
+
+| Field | Where | Needs from you |
+|---|---|---|
+| `telegram` | `TELEGRAM_HANDLE=@you` | your handle |
+| `socialLink` | `docs/aigora/x-post.md` | post one of two drafts, paste the URL |
+| `erc8004Url` | `npm run go-live` | ~0.2 CELO for gas |
+| `agentWalletAddress` | already in `.submission.json` | nothing |
+| `celoNetwork` | already `celo-mainnet` | nothing |
+
+Optional but worth it, both drafted:
+`docs/aigora/registration.md` (every Aigora field, pre-validated) and
+`docs/aigora/feedback-draft.md` (a real reproducible bug, which is Track 4's
+whole scoring criterion).
+
 **And do not compete on settlement count.** Measured on Jul 28: the facilitator
 is at 155,721 settlements, three wallets produce 88% of recent activity, and the
 leader alone runs ~12,900/day toward roughly 77,000 by the deadline. Our ceiling
