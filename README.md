@@ -115,10 +115,17 @@ Android device; MiniPay does not run in an emulator.
 ## Checking that it works
 
 ```bash
-npm test     # attribution tag round-trip
-npm run gates    # 5 gates against live systems
-npm run score    # one number, both deadlines, biggest remaining lever
+npm test          # every suite, plus the Solidity contract tests
+npm run check     # typecheck, build, tests, and verify the deployed service
+npm run verify    # is the live service actually selling right now?
+npm run score     # one number, the remaining blockers, the biggest lever
+npm run fresh     # clone this repo and follow this README as a stranger
 ```
+
+`npm run score` runs the gates with the deployed state loaded. Running
+`npm run gates` on its own reports fewer passes, because it has no
+`SELLER_PAY_TO` or seller URL to check against; that is a missing argument,
+not a failing system.
 
 `gates.mjs` is the honest one. G3 is a kill test: it makes a session key sign a
 real EIP-3009 authorization, has the facilitator settle it, then re-fetches the
