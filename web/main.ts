@@ -214,7 +214,11 @@ $("ask-btn").addEventListener("click", async () => {
   try {
     // The 402 handshake, signing and retry all happen inside payFetch. The
     // user is not prompted: the session key already holds the funds.
+    // Bound the wait. Settlement is normally about a second, but the x402
+    // client has no timeout: a stalled facilitator leaves the user on
+    // "Thinking…" forever, with no way to know whether their cent went.
     const res = await payFetch("/api/ask", {
+      signal: AbortSignal.timeout(45_000),
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ q }),
@@ -263,6 +267,13 @@ $("ask-btn").addEventListener("click", async () => {
     console.error(e);
     try {
       const spent = (await usdcBalance(loadSessionKey().address)) < balanceBefore;
+      // A timeout with the balance intact is the one case we can be certain
+      // about, and it is the most likely one: say so plainly.
+      if (!spent && (e?.name === "TimeoutError" || e?.name === "AbortError")) {
+        setStatus("ask-status", "That took too long, so nothing was charged. Try again.", true);
+        await refreshBalance().catch(() => {});
+        return;
+      }
       setStatus(
         "ask-status",
         spent

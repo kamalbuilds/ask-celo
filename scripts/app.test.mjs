@@ -2213,5 +2213,27 @@ await check("every failure path shows the reason rather than a shrug", async () 
   assert.match(topup.slice(0, 3000), /insufficient/i, "an insufficient balance is not handled distinctly");
 });
 
+
+await check("a paid request cannot hang forever", async () => {
+  // The x402 client has no timeout. A stalled facilitator left the user on
+  // "Thinking…" indefinitely, with the button disabled and no way to learn
+  // whether their cent was taken. Settlement is normally about a second.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const main = readFileSync(fileURLToPath(new URL("../web/main.ts", import.meta.url)), "utf8");
+
+  const ask = main.slice(main.indexOf('payFetch("/api/ask"'));
+  assert.match(ask.slice(0, 400), /AbortSignal\.timeout\(/, "the paid request has no timeout");
+
+  // And the timeout must produce a truthful message, not the generic one:
+  // with the balance unchanged we know for certain nothing was charged.
+  assert.match(
+    main,
+    /TimeoutError|AbortError/,
+    "a timeout is not distinguished from other failures",
+  );
+  assert.match(main, /nothing was charged/i, "a timeout does not tell the user their money is safe");
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
