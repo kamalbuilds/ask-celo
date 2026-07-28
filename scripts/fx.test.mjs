@@ -239,6 +239,21 @@ await check("an off-topic price question does not answer with Celo gas", async (
   }
 });
 
+
+await check("chain reads retry instead of failing on a throttled RPC", async () => {
+  // A public RPC rate-limits. One FX answer makes several oracle reads, so a
+  // burst throttles — and without retry the user pays and gets an error. This
+  // surfaced as a flaky test suite, which is the same bug wearing a costume.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const src = readFileSync(fileURLToPath(new URL("../src/inference.ts", import.meta.url)), "utf8");
+  const clients = [...src.matchAll(/createPublicClient\(\{[\s\S]{0,220}?\}\)/g)].map((m) => m[0]);
+  assert.ok(clients.length > 0, "no viem clients found");
+  for (const c of clients) {
+    assert.match(c, /retryCount/, `a client has no retry:\n${c}`);
+  }
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 
 for (const [a, b] of [["cUSD", "cKES"], ["cUSD", "cCOP"], ["cUSD", "cREAL"], ["cEUR", "cKES"]]) {

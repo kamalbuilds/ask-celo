@@ -14,7 +14,14 @@ import { createPublicClient, http, erc20Abi, formatUnits, getAddress } from "vie
 import { celo } from "viem/chains";
 import { CFG, PRICE, TOPUP_MIN, TOPUP_MIN_QUESTIONS } from "./config.js";
 
-const client = createPublicClient({ chain: CFG.chain, transport: http(CFG.rpc) });
+const MAINNET_RPC = "https://forno.celo.org";
+
+// Same reasoning as MAINNET below: a paid request must not fail because a
+// public RPC throttled one read.
+const client = createPublicClient({
+  chain: CFG.chain,
+  transport: http(CFG.rpc, { retryCount: 3, retryDelay: 300 }),
+});
 
 /**
  * Gas for one stablecoin transfer, measured from real Celo mainnet settlements
@@ -57,7 +64,7 @@ async function stablecoinAnswer() {
   // Mento lives on mainnet only. Read mainnet directly rather than returning a
   // apology on testnet: the answer is about Celo, not about which chain this
   // particular server happens to be pointed at.
-  const mainnet = createPublicClient({ chain: celo, transport: http("https://forno.celo.org") });
+  const mainnet = mainnetClient();
   const results = await Promise.all(
     Object.values(MENTO_MAINNET).map(async (address) => {
       const [total, symbol, decimals] = await Promise.all([
@@ -108,8 +115,19 @@ const CURRENCY = {
   cCOP: "Colombian pesos",
 } as const;
 
-const mainnetClient = () =>
-  createPublicClient({ chain: celo, transport: http("https://forno.celo.org") });
+/**
+ * One mainnet client, built once and retrying.
+ *
+ * This was a factory returning a fresh client per call, with no retry. A
+ * public RPC rate-limits, so a burst of oracle reads — which is exactly what
+ * one FX answer does — failed outright. The user paid, and got an error.
+ * viem retries with backoff when asked; asking costs one argument.
+ */
+const MAINNET = createPublicClient({
+  chain: celo,
+  transport: http(MAINNET_RPC, { retryCount: 3, retryDelay: 300 }),
+});
+const mainnetClient = () => MAINNET;
 
 async function ratePerCelo(token: string) {
   const [num, den] = await mainnetClient().readContract({
