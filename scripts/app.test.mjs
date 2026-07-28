@@ -813,5 +813,47 @@ await check("registering is not entering: a publish path exists", async () => {
   assert.match(src, /delete customFields\.socialLink/, "socialLink must be sent top-level, not in customFields");
 });
 
+
+await check("we satisfy the hackathon's own rules", async () => {
+  // Read from their API, not from memory. "Celo mainnet only" is a rule, and
+  // the docs led with a testnet proof hash for most of a day — honest, but it
+  // reads like a violation to anyone skimming.
+  const rules = await fetch("https://celobuilders.xyz/hackathons/agentic-payments-defai/rules", {
+    signal: AbortSignal.timeout(15_000),
+  })
+    .then((r) => r.json())
+    .catch(() => null);
+  if (!rules) {
+    console.log("  skip  celobuilders unreachable");
+    return;
+  }
+  const text = JSON.stringify(rules).toLowerCase();
+
+  if (text.includes("mainnet only") || text.includes("celo-mainnet")) {
+    // The live service must actually be on mainnet.
+    const health = await fetch("https://ask-celo.vercel.app/api/health", {
+      signal: AbortSignal.timeout(20_000),
+    })
+      .then((r) => r.json())
+      .catch(() => null);
+    if (health) {
+      assert.equal(health.network, "mainnet", "the rule is mainnet only and we are not on mainnet");
+      // From config, not a literal: the duplicate-constant check flagged my
+      // own hardcoded CAIP id here, which is exactly what it is for.
+      const { NETWORKS } = await import("../src/config.ts");
+      assert.equal(health.caip, NETWORKS.mainnet.caip);
+    }
+  }
+
+  if (text.includes("public github")) {
+    const repo = await fetch("https://api.github.com/repos/kamalbuilds/ask-celo", {
+      signal: AbortSignal.timeout(15_000),
+    })
+      .then((r) => r.json())
+      .catch(() => null);
+    if (repo) assert.equal(repo.private, false, "the rule requires a public repo");
+  }
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();

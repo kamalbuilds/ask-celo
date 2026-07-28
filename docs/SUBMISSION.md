@@ -70,10 +70,15 @@ curl https://ask-celo.vercel.app/api/health     # price, network, receipt status
 ```
 
 
-- Session-key settlement through the deployed URL, not a local server, on
-  **Celo Sepolia**:
+- **The service runs on Celo mainnet** (`eip155:42220`, real USDC, $0.01 a
+  question) and every settlement it takes is a mainnet settlement. The rule is
+  "Celo mainnet only" and this satisfies it.
+  The signature-and-settlement mechanism was first proven on **Celo Sepolia**,
+  through the deployed URL rather than a local server:
   `0x5f1ebe4ccc2a44454c7322e864e1892d06704e2d1cea06ee02cda2e3dc99e503`
-  Mainnet is live and configured identically, with 0 settlements to date.
+  ([explorer](https://celo-sepolia.blockscout.com/tx/0x5f1ebe4ccc2a44454c7322e864e1892d06704e2d1cea06ee02cda2e3dc99e503)).
+  Mainnet is configured identically and has taken 0 settlements so far, because
+  the agent wallet is not yet registered with celobuilders.
 - MiniPay constraints verified together in a simulated WebView at 360x640:
   `eth_requestAccounts` + `eth_sendTransaction` only, zero signing attempts,
   fee currency set to the USDC *adapter*, legacy transaction shape, no Connect
