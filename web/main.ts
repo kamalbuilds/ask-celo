@@ -184,7 +184,19 @@ $("ask-btn").addEventListener("click", async () => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ q }),
     });
-    if (!res.ok) throw new Error(`request failed (${res.status})`);
+    if (!res.ok) {
+      // An off-topic question is refused free with guidance on what this can
+      // answer. Showing "request failed (400)" would hide the one piece of
+      // text that tells the user how to get their money's worth.
+      const body = await res.json().catch(() => ({}) as { hint?: string });
+      if (body.hint) {
+        $("answer").textContent = body.hint;
+        show("answer");
+        setStatus("ask-status", "");
+        return;
+      }
+      throw new Error(`request failed (${res.status})`);
+    }
     const { answer } = await res.json();
     $("answer").textContent = answer;
     show("answer");

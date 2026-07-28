@@ -285,5 +285,17 @@ await check("an answerable question still reaches the paywall", async () => {
   assert.equal(res.status, 402, `answerable question returned ${res.status}, not a payment challenge`);
 });
 
+
+await check("the free refusal is shown to the user, not swallowed as an error", async () => {
+  // The server refuses off-topic questions with a hint. If the client renders
+  // "request failed (400)" instead, the user sees a broken app rather than
+  // the one message that tells them what to ask.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const main = readFileSync(fileURLToPath(new URL("../web/main.ts", import.meta.url)), "utf8");
+  const guard = main.slice(main.indexOf("if (!res.ok)"), main.indexOf("if (!res.ok)") + 600);
+  assert.match(guard, /body\.hint/, "the client ignores the server's hint on a refusal");
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
