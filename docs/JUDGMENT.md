@@ -33,16 +33,22 @@ been attacked is a suite whose failures are unmeasured.
 
 ## Where it is weak, stated plainly
 
-**Customer truth is the weakest link.** The honest version: a MiniPay user in
-Lagos does not wake up wanting live Celo gas figures. The question set (gas,
-Mento supply, facilitator status, block finality) is *developer* curiosity
-served through a *consumer* channel. The payment rail is genuinely novel; the
-thing being sold across it is not yet something anyone needs.
+**Customer truth was the weakest link, and it was acted on.** The original
+question set (gas, Mento supply, facilitator status, block finality) was
+*developer* curiosity served through a *consumer* channel: a MiniPay user in
+Lagos does not wake up wanting live Celo gas figures.
 
-This is a real weakness and worth saying out loud rather than dressing up. What
-makes it defensible is that the rail is the contribution: once a MiniPay wallet
-can pay per request, the catalogue of what it pays for is a content problem, not
-an architecture problem. But a judge would be right to push on it.
+That verdict was written here, and then the catalogue was replaced rather than
+defended. What the service leads with now is what a dollar is worth in
+shillings, read from the Mento oracle the chain itself settles against, and
+what sending money home actually costs against the World Bank's published
+average. Both are live-data questions where the answer is worth more than the
+fee, and both reuse the rail unchanged.
+
+The residual weakness is honest and smaller: five currencies is a narrow
+catalogue, and a naira or cedi question is refused (for free, before payment,
+because the oracle does not carry them). Someone who wants their own corridor
+may not find it.
 
 **Third-party payers is still zero on mainnet.** One settlement exists from a
 wallet that is not the seller, on testnet. Until real people pay, "real demand"
@@ -54,18 +60,18 @@ something more effort fixes.
 
 ## What would change the verdict
 
-The single highest-value change is not more code. It is replacing the answer
-catalogue with something a MiniPay user actually wants at a cent a call. FX
-rates against local currency, remittance corridor costs, and airtime pricing
-are all live-data questions where the answer is worth more than the fee, and all
-three reuse the existing rail unchanged.
+The catalogue rewrite above was the highest-value change and it is done. What
+remains is not code either: it is one real payment from someone who is not the
+builder, which requires the wallet to be registered with celobuilders so the
+leaderboard can see it. Everything technical for that is finished and verified.
 
-That is a content decision worth making before the Aug 3 deadline, not a
-rewrite.
+Widening the corridor set would help next, and it is bounded by Mento rather
+than by us: the oracle carries five currencies, so a sixth is not a feature to
+write but a feed to wait for.
 
 ## How this loses
 
-- A judge asks "who wants this answer?" and the honest reply is thin
+- A judge asks "who wants this answer?" about a corridor Mento does not carry
 - Zero mainnet third-party payers at judging time
 - The rail is judged as infrastructure in a track that rewards volume
 

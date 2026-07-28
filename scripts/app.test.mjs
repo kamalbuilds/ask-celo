@@ -2496,5 +2496,39 @@ await check("the agent contribution notes describe things that are actually true
   }
 });
 
+
+await check("JUDGMENT's stated weakness is the one that actually exists", async () => {
+  // This document is written to be read by someone looking for reasons to
+  // reject. It said the weakest link was a developer-curiosity question set,
+  // which was true when written and was then fixed — leaving the doc arguing
+  // against a version of the product that no longer exists.
+  //
+  // A stale self-criticism is worse than none: it hands a reviewer an
+  // objection the code already answers, and it suggests nothing else in the
+  // document has been re-checked either.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const judgment = readFileSync(`${root}/docs/JUDGMENT.md`, "utf8");
+  const { canAnswer } = await import("../src/inference.ts");
+
+  // If it claims the catalogue leads with FX and remittance, that must hold.
+  if (/what a dollar is worth in shillings/i.test(judgment)) {
+    assert.ok(canAnswer("what is a dollar worth in shillings"), "the FX claim is stale");
+    assert.ok(canAnswer("what does it cost to send money home"), "the remittance claim is stale");
+  }
+  // If it claims an unsupported corridor is refused free, that must hold too.
+  if (/naira or cedi question is refused/i.test(judgment)) {
+    assert.equal(canAnswer("naira to dollars"), false, "naira is answerable; the stated weakness is wrong");
+    assert.equal(canAnswer("dollar to cedis"), false, "cedi is answerable; the stated weakness is wrong");
+  }
+  // And it must not still be arguing the old catalogue is the weak point.
+  assert.doesNotMatch(
+    judgment,
+    /^\*\*Customer truth is the weakest link/m,
+    "JUDGMENT still names a weakness that has since been fixed",
+  );
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
