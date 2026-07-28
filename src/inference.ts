@@ -232,16 +232,27 @@ async function remittanceAnswer(q: string) {
   const feeUsd = ((Number(gasPrice) * TRANSFER_GAS) / 1e18) * celoUsd;
 
   const amount = Number(q.match(/\$?\s?(\d{2,6})/)?.[1] ?? 200);
-  const WORLD_BANK_PCT = 6.2;
+  // Remittance Prices Worldwide, Issue 54 (Q3 2025 data, the most recent
+  // release). 6.2% was stale. The number is the comparison the whole answer
+  // rests on, so it names its source and issue rather than floating free.
+  const WORLD_BANK_PCT = 6.36;
   const traditional = (amount * WORLD_BANK_PCT) / 100;
   const pct = (feeUsd / amount) * 100;
 
   return (
     `Sending $${amount} in stablecoins on Celo costs about $${feeUsd.toFixed(4)} in network fees ` +
     `(${pct.toFixed(4)}% of the amount), at ${(Number(gasPrice) / 1e9).toFixed(1)} gwei right now. ` +
-    `The World Bank puts the global average cost of sending $200 at ${WORLD_BANK_PCT}%; ` +
+    `The World Bank's Remittance Prices Worldwide (Issue 54, Q3 2025) puts the global ` +
+    `average cost of sending $200 at ${WORLD_BANK_PCT}%; ` +
     `at that rate this transfer would cost about $${traditional.toFixed(2)}. ` +
-    `The fee can be paid in the stablecoin itself, so no separate gas token is needed.`
+    `The fee can be paid in the stablecoin itself, so no separate gas token is needed. ` +
+    // Without this the answer is true and misleading. The network fee is not
+    // the cost of the transfer: the recipient still has to turn stablecoins
+    // into money they can spend, and that spread is the number that decides
+    // whether any of this actually helps them.
+    `That is the network fee only — cashing out to local currency costs whatever ` +
+    `your exchange or P2P desk charges, and that spread, not the transfer, is ` +
+    `usually the real cost.`
   );
 }
 

@@ -294,6 +294,27 @@ await check("oracle rates agree with the real market", async () => {
   }
 });
 
+
+await check("the remittance answer does not present a network fee as the total cost", async () => {
+  // "$0.001 vs the World Bank's 6.36%" is true and misleading: the recipient
+  // still has to turn stablecoins into spendable money, and that spread is
+  // usually the real cost. An answer that omits it flatters us and misleads
+  // the exact person the product claims to serve.
+  const { answer } = await import("../src/inference.ts");
+  const a = await answer("how much does it cost to send money to india");
+  assert.match(a, /cash(ing)? out|local currency/i, "the answer omits the cash-out cost");
+  assert.match(a, /network fee/i, "the answer does not say the figure is the network fee only");
+});
+
+await check("the World Bank figure names its source and issue", async () => {
+  // A borrowed statistic with no provenance rots silently: 6.2% was stale by
+  // one full release, and nothing in the code or the tests could have said so.
+  const { answer } = await import("../src/inference.ts");
+  const a = await answer("how much does it cost to send money to india");
+  assert.match(a, /Remittance Prices Worldwide/i, "no source named for the comparison figure");
+  assert.match(a, /Issue \d+/i, "no issue named, so staleness is invisible");
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 
 for (const [a, b] of [["cUSD", "cKES"], ["cUSD", "cCOP"], ["cUSD", "cREAL"], ["cEUR", "cKES"]]) {
