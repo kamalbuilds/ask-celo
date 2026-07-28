@@ -155,7 +155,6 @@ await check("an unreadable balance never lets anyone spend", async () => {
   // clickable over a placeholder balance and the user paid for a request that
   // could not complete. On 2G this is a normal condition, not an edge case.
   const { unknownBalance } = await import("../src/balance.ts");
-  assert.equal(unknownBalance.canAsk, false, "Ask enabled with an unknown balance");
   assert.equal(unknownBalance.canSweep, false, "sweep offered with an unknown balance");
   assert.match(unknownBalance.message, /connection/i, "the message does not explain why");
 });
@@ -174,16 +173,26 @@ await check("the balance view gates spending on affordability", async () => {
   assert.match(canTopUp.message, /Add credit/i, "a funded wallet is not offered the top-up path");
 
   const empty = balanceView(0);
-  assert.equal(empty.canAsk, false, "can ask with nothing");
   assert.equal(empty.canSweep, false, "can sweep nothing");
   assert.equal(empty.showStorageWarning, false, "warns about losing an empty balance");
 
   // Exactly one question's worth must be enough, and a fraction must not be.
-  assert.equal(balanceView(PRICE.usd).canAsk, true, "exactly one question is not affordable");
-  assert.equal(balanceView(PRICE.usd / 2).canAsk, false, "half a question is affordable");
+  // canAsk is gone: the Ask button is always live so the free answers are
+  // reachable, and the paywall decides whether a question costs anything.
+  // What still matters is that exactly one question's worth reads as one
+  // question, not zero.
+  assert.match(
+    balanceView(PRICE.usd).message,
+    /1 question left/,
+    "exactly one question's balance does not read as one question",
+  );
+  assert.match(
+    balanceView(PRICE.usd / 2).message,
+    /Add credit/,
+    "half a question's balance does not prompt for credit",
+  );
 
   const funded = balanceView(5);
-  assert.equal(funded.canAsk, true);
   assert.equal(funded.balance, "$5.00");
   assert.match(funded.message, /500 questions left/);
   assert.equal(funded.showStorageWarning, true, "no warning while holding real money");
@@ -2267,6 +2276,36 @@ await check("no network call in a request path is unbounded", async () => {
     [],
     `network calls with no deadline, on paths a user waits on:\n  ${unbounded.join("\n  ")}`,
   );
+});
+
+
+await check("every computed view flag is actually rendered", async () => {
+  // balanceView computes canAsk, canSweep and showStorageWarning. Each is only
+  // worth anything if something reads it: canAsk was once computed correctly
+  // and used to disable the button that made free answers unreachable, and a
+  // flag that nothing renders is the same bug with the failure inverted.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const balance = readFileSync(`${root}/src/balance.ts`, "utf8");
+  const main = readFileSync(`${root}/web/main.ts`, "utf8");
+
+  // Fields of the view type, minus the plain strings the page prints.
+  const flags = [...balance.matchAll(/^\s{2}(\w+): boolean;/gm)].map((m) => m[1]);
+  assert.ok(flags.length >= 2, `only ${flags.length} view flags found`);
+
+  const unused = flags.filter((f) => !main.includes(`view.${f}`));
+  assert.deepEqual(unused, [], `computed but never rendered: ${unused.join(", ")}`);
+
+  // And each must drive a real element, not just be referenced.
+  for (const f of flags) {
+    const line = main.split("\n").find((l) => l.includes(`view.${f}`));
+    assert.match(
+      line ?? "",
+      /show\(|\.disabled|textContent|hidden/,
+      `view.${f} is read but does not change anything on the page: ${line?.trim()}`,
+    );
+  }
 });
 
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);

@@ -12,7 +12,6 @@ import { PRICE } from "./config.js";
 export type BalanceView = {
   balance: string;
   message: string;
-  canAsk: boolean;
   canSweep: boolean;
   showStorageWarning: boolean;
 };
@@ -22,7 +21,6 @@ export const unknownBalance: BalanceView = {
   balance: "—",
   message: "Cannot reach the network. Check your connection.",
   // Never let someone spend against a balance we could not read.
-  canAsk: false,
   // Neither action is meaningful without knowing what is there.
   canSweep: false,
   showStorageWarning: false,
@@ -46,7 +44,6 @@ export function balanceView(usd: number, walletUsd?: number): BalanceView {
       : noFundsAnywhere
         ? "You need USDC on Celo to pay. Any exchange that supports Celo, or a swap in your wallet."
         : "Add credit to ask a question",
-    canAsk: left >= 1,
     canSweep: usd > 0,
     // Only warn when there is something to lose. A standing warning on an
     // empty balance is noise; this appears exactly when clearing site data
