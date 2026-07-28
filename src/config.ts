@@ -29,11 +29,19 @@ export const NETWORK = env("X402_NETWORK") === "mainnet" ? "mainnet" : "testnet"
 // USDC/USDT only: the facilitator settles via EIP-3009 transferWithAuthorization,
 // and Mento's StableTokenV2 (USDm/cUSD and every local stablecoin) implements
 // EIP-2612 permit instead, so it cannot settle here.
+/**
+ * Mento's oracle and stablecoins live on mainnet only, so answers about them
+ * read mainnet regardless of which network this server sells on. Exported so
+ * inference.ts does not restate the URL: it had its own copy, which is the
+ * shape that has produced most of the bugs in this codebase.
+ */
+export const MAINNET_RPC = env("CELO_RPC_MAINNET") ?? "https://forno.celo.org";
+
 export const CFG = {
   mainnet: {
     caip: "eip155:42220" as const,
     chain: celo,
-    rpc: env("CELO_RPC") ?? "https://forno.celo.org",
+    rpc: env("CELO_RPC") ?? MAINNET_RPC,
     facilitator: "https://api.x402.celo.org",
     usdc: "0xcebA9300f2b948710d2653dD7B07f33A8B32118C",
     usdcAdapter: "0x2F25deB3848C207fc8E0c34035B3Ba7fC157602B", // feeCurrency, NOT the token

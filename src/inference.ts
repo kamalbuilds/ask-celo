@@ -12,9 +12,7 @@
  */
 import { createPublicClient, http, erc20Abi, formatUnits, getAddress } from "viem";
 import { celo } from "viem/chains";
-import { CFG, PRICE, TOPUP_MIN, TOPUP_MIN_QUESTIONS } from "./config.js";
-
-const MAINNET_RPC = "https://forno.celo.org";
+import { CFG, MAINNET_RPC, PRICE, TOPUP_MIN, TOPUP_MIN_QUESTIONS } from "./config.js";
 
 // Same reasoning as MAINNET below: a paid request must not fail because a
 // public RPC throttled one read.

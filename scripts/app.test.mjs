@@ -632,5 +632,27 @@ await check("a failed chain read says the payment was not taken", async () => {
   assert.match(handler.slice(0, 900), /50[0-9],/, "the failure status would let settlement proceed");
 });
 
+
+await check("no source file restates a URL that config already owns", async () => {
+  // Duplicated constants are the single most productive bug source in this
+  // codebase: the price in seven places, the service defined twice, the
+  // suggestion text in two spots, a committed dist/, a mainnet RPC in both
+  // config.ts and inference.ts. Each pair agreed when written and had nothing
+  // keeping it that way.
+  const { readFileSync, readdirSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const root = fileURLToPath(new URL("../src", import.meta.url));
+  const offenders = [];
+  for (const f of readdirSync(root).filter((f) => f.endsWith(".ts") && f !== "config.ts")) {
+    const src = readFileSync(`${root}/${f}`, "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "");
+    for (const m of src.matchAll(/"(https:\/\/(?:forno|api\.x402)[^"]*)"/g)) {
+      offenders.push(`${f}: ${m[1]}`);
+    }
+  }
+  assert.deepEqual(offenders, [], `these restate a URL config owns:\n  ${offenders.join("\n  ")}`);
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
