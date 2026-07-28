@@ -1,0 +1,73 @@
+# Where this stands
+
+Live on Celo mainnet at **https://ask-celo.vercel.app**, taking real USDC.
+
+Everything buildable is built, tested and deployed. Two inputs are outstanding,
+both of which need you, and one of them decays.
+
+## Do these two things
+
+```bash
+cd app
+
+# 1. Locks the attribution tag. Google sign-in, paste back the short code.
+TELEGRAM_HANDLE=@yourhandle npm run register
+
+# 2. Send ~0.5 CELO to 0xE626fC73E7FcE36a2371D7B4f3482Aed17308A77, then:
+npm run go-live
+```
+
+`go-live` deploys the receipts contract, verifies its source on Celoscan, mints
+the ERC-8004 identity, wires the production environment, redeploys and scores.
+It refuses to start on an underfunded wallet rather than stranding a half-done
+deploy.
+
+**The tag is the urgent one.** Track 1 credits only tagged transactions and
+cannot backfill, so untagged volume is lost permanently. Everything else can be
+done at any point before Aug 3, 09:00 GMT.
+
+## What is true right now
+
+`npm run verify` reports it without editorialising:
+
+| | |
+|---|---|
+| Network | `eip155:42220`, real Celo USDC, $0.01 per answer |
+| Facilitator | 500 prepaid settlement credits |
+| Receipts | **disabled** — no contract or tag, so sales earn no Track 1 credit |
+| Bundle | **no tag** — every top-up would ship unattributed |
+
+The service can take money. It cannot yet be credited for it.
+
+## Commands
+
+| | |
+|---|---|
+| `npm run check` | typecheck, build, all tests, production verify |
+| `npm run verify` | is the deployed service actually selling? |
+| `npm run fresh` | clone the public repo and follow the README as a stranger |
+| `npm run score` | one number, both deadlines, biggest remaining lever |
+| `npm test` | 4 suites, 35 checks, plus 7 contract tests |
+
+## The wedge, in one paragraph
+
+MiniPay implements neither `personal_sign` nor `eth_signTypedData`, so its
+wallets cannot produce the EIP-3009 signature x402 settlement requires. Millions
+of wallets are structurally locked out of Celo's own payment protocol, and the
+upstream request is still open (`celo-org/minipay#45`). Ask bridges it with a
+device-local session key: the user makes one ordinary transfer they can read,
+and that key signs every payment afterwards. Proven on-chain, settlement
+`0x5f1ebe4ccc2a44454c7322e864e1892d06704e2d1cea06ee02cda2e3dc99e503`.
+
+Every competitor repo read during research sells an API and then buys from
+itself. This is the only design in the field where the payer is somebody else.
+
+## Reading
+
+- `docs/TRY-IT.md` — how to pay, from a browser or a script
+- `docs/GO-LIVE.md` — the mainnet runbook and what it costs
+- `docs/JUDGMENT.md` — where this wins, how it loses, and the three questions
+  that found nearly every bug
+- `docs/RESEARCH.md` — the competitive scan and the measurement behind the wedge
+- `docs/SUBMISSION.md` — submission copy and the X post draft
+- `docs/SIDE-TRACKS.md` — Askbots and Aigora status

@@ -1,5 +1,8 @@
 # Ask
 
+> **Status:** live on Celo mainnet. Two things left, both needing you — see
+> [STATUS.md](STATUS.md).
+
 Pay a cent a question. No subscription, no account, no card.
 
 ```
