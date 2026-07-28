@@ -6,10 +6,15 @@ charges $0.01 in USDC per question.
 ## From a browser (the MiniPay path)
 
 1. Open https://ask-celo.vercel.app
-2. Tap **Add credit** and approve one transfer. That is the only wallet
+2. Tap **Add credit** and approve one transfer. The default is 25c, which is
+   25 questions — enough to decide whether this is worth anything to you. That is the only wallet
    approval you will ever see: no signature prompt, no seed phrase, and the
    network fee is paid in USDC so you never need CELO.
 3. Ask something. Each question spends a cent from the session key.
+   Questions about the service itself ("is this a scam", "can I get a refund",
+   "what happens to my money") are answered **free**, before the paywall — you
+   have not agreed to pay anything yet. Questions the service cannot answer are
+   refused free too, so you are never charged for a non-answer.
 4. **Return unused credit** sends whatever is left back to your wallet. Your
    browser signs the refund and the facilitator pays the gas, because the
    session key holds USDC and no CELO and so cannot pay for a transfer itself.

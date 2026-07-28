@@ -62,7 +62,7 @@ The service can take money. It cannot yet be credited for it.
 | `npm run verify` | is the deployed service actually selling? |
 | `npm run fresh` | clone the public repo and follow the README as a stranger |
 | `npm run score` | one number, both deadlines, biggest remaining lever |
-| `npm test` | 4 suites, 35 checks, plus 7 contract tests |
+| `npm test` | every suite, plus the Solidity contract tests |
 
 ## The wedge, in one paragraph
 

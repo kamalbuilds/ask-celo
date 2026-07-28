@@ -5,6 +5,10 @@
 
 Pay a cent a question. No subscription, no account, no card.
 
+You are never charged for a non-answer: a question outside what the service can
+read from the chain is refused before payment, and questions about the service
+itself are answered free.
+
 ```
 "dollar to shillings"     ->  1 USD = 139 KES, from Mento's on-chain oracle.
                               The rate the chain settles at, so a swap executes

@@ -385,5 +385,71 @@ await check("the MiniPay path never calls a method MiniPay lacks", async () => {
   );
 });
 
+
+await check("the docs do not quote a test count that can go stale", async () => {
+  // A hardcoded "35 checks" in a doc is a claim about our own rigor that a
+  // judge can check in one command — and it was already wrong by 19. Nothing
+  // updates prose when a test is added, so the number must not be there.
+  const { readFileSync, readdirSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const docs = ["README.md", "STATUS.md", ...readdirSync(`${root}/docs`).map((f) => `docs/${f}`)];
+  const stale = [];
+  for (const d of docs) {
+    const text = readFileSync(`${root}/${d}`, "utf8");
+    for (const m of text.matchAll(/(\d+)\s+(checks|tests|suites)\b/g)) {
+      // "7 contract tests" is fixed by the contract's own file; a count that
+      // grows with every new check is the one that rots.
+      if (m[2] !== "suites" && Number(m[1]) > 10) stale.push(`${d}: "${m[0]}"`);
+    }
+  }
+  assert.deepEqual(stale, [], `these counts will be wrong by the next commit:\n  ${stale.join("\n  ")}`);
+});
+
+
+await check("the price in the docs is the price the server charges", async () => {
+  // The price lived in seven places once. It now lives in PRICE, but prose is
+  // outside the type system: a doc can quote a price the server does not
+  // charge, and a judge or a payer reads the doc.
+  const { readFileSync, readdirSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const { PRICE } = await import("../src/config.ts");
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const docs = ["README.md", "STATUS.md", ...readdirSync(`${root}/docs`).map((f) => `docs/${f}`)];
+  const wrong = [];
+  for (const d of docs) {
+    for (const m of readFileSync(`${root}/${d}`, "utf8").matchAll(/\$0\.\d+ (per|a) question/g)) {
+      if (!m[0].startsWith(PRICE.display)) wrong.push(`${d}: "${m[0]}" but we charge ${PRICE.display}`);
+    }
+  }
+  assert.deepEqual(wrong, [], wrong.join("\n  "));
+});
+
+
+await check("the README's promise about not charging is enforced by code", async () => {
+  // The README now promises two things about money: unanswerable questions are
+  // refused before payment, and questions about the service are free. Prose is
+  // outside the type system, so this is the category of bug no test catches —
+  // a page asserting something about money that nothing measured. Hold the
+  // promise to the running server, not to a string.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const readme = readFileSync(fileURLToPath(new URL("../README.md", import.meta.url)), "utf8");
+  if (!/refused before payment/i.test(readme)) return; // promise not made
+
+  const ask = (q) =>
+    fetch(url("/api/ask"), {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ q }),
+    });
+
+  const offTopic = await ask("what is the capital of France");
+  assert.equal(offTopic.status, 400, "README promises a free refusal; the server charges");
+
+  const about = await ask("is this a scam");
+  assert.equal(about.status, 200, "README promises service questions are free; the server charges");
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
