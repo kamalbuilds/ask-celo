@@ -82,9 +82,11 @@ Every answer is read at the moment you ask.
 ```bash
 curl https://ask-celo.vercel.app/api/health
 
-# the 402 challenge, decoded
+# the 402 challenge, decoded. The question must be one the service can
+# answer: anything else is refused for free before the paywall, so it never
+# produces a challenge.
 curl -si -X POST https://ask-celo.vercel.app/api/ask \
-  -H 'content-type: application/json' -d '{"q":"x"}' \
+  -H 'content-type: application/json' -d '{"q":"dollar to shillings"}' \
   | grep -i '^payment-required' | cut -d' ' -f2 | tr -d '\r' | base64 -d
 ```
 

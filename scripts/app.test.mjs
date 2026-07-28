@@ -1543,5 +1543,60 @@ await check("the terms are readable without paying, as TRY-IT promises", async (
   assert.equal(accepts.amount, PRICE.amount, "the challenge amount disagrees with PRICE");
 });
 
+
+await check("every curl the docs print actually works", async () => {
+  // TRY-IT told a reader to POST {"q":"x"} to see the payment terms. That
+  // question is now refused for free before the paywall, so the documented
+  // command returns 400 and no header: a judge copying it gets nothing and
+  // concludes the paywall is broken.
+  //
+  // My own free-refusal change broke this doc, three hours after I wrote the
+  // change and never re-read the page that describes it.
+  const { readFileSync, readdirSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const { execSync } = await import("node:child_process");
+  const root = fileURLToPath(new URL("..", import.meta.url));
+  const walk = (dir, prefix) =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory() ? walk(`${dir}/${e.name}`, `${prefix}${e.name}/`) : `${prefix}${e.name}`,
+    );
+  const docs = ["README.md", "STATUS.md", ...walk(`${root}/docs`, "docs/")].filter((f) =>
+    f.endsWith(".md"),
+  );
+
+  const failures = [];
+  for (const d of docs) {
+    const text = readFileSync(`${root}/${d}`, "utf8");
+    // Only self-contained curls against our own service, joined across
+    // backslash continuations.
+    // Join continuation lines by walking them, not by regex: a backslash at
+    // end of line inside a JS string literal is two levels of escaping deep,
+    // and my first attempt silently ran a command ending in a bare backslash.
+    const lines = text.split("\n");
+    const commands = [];
+    for (let i = 0; i < lines.length; i++) {
+      if (!/^curl /.test(lines[i])) continue;
+      let cmd = lines[i];
+      while (cmd.endsWith("\\") && i + 1 < lines.length) {
+        cmd = `${cmd.slice(0, -1).trim()} ${lines[++i].trim()}`;
+      }
+      commands.push(cmd);
+    }
+    for (const cmd of commands) {
+      if (!cmd.includes("ask-celo.vercel.app")) continue;
+      if (cmd.includes("$")) continue; // needs a variable the reader supplies
+      let out = "";
+      try {
+        out = execSync(`${cmd} 2>/dev/null`, { encoding: "utf8", timeout: 30_000 });
+      } catch {
+        failures.push(`${d}: command failed: ${cmd.slice(0, 70)}`);
+        continue;
+      }
+      if (!out.trim()) failures.push(`${d}: produced no output: ${cmd.slice(0, 70)}`);
+    }
+  }
+  assert.deepEqual(failures, [], `documented commands that do not work:\n  ${failures.join("\n  ")}`);
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
