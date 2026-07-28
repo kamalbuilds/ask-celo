@@ -1789,5 +1789,23 @@ await check("an oversized question is refused before it costs anything", async (
   assert.equal(normal.status, 402, "a normal-length question was rejected as too long");
 });
 
+
+await check("health tells an agent what the service sells, not only what it costs", async () => {
+  // An agent deciding whether to buy had no way to learn what this answers
+  // without paying first. Health stated the price and the network and nothing
+  // about the product, and there is no other machine-readable description.
+  const res = await fetch(url("/api/health"));
+  const h = await res.json();
+  assert.ok(h.service?.description, "health does not describe the service");
+  assert.ok(Array.isArray(h.service?.answers) && h.service.answers.length >= 5, "no example questions");
+  assert.match(h.service.free ?? "", /not charged|free/i, "health does not mention the free paths");
+
+  // Every advertised example must actually be answerable. A list that drifts
+  // from the topic table is worse than no list: it promises and then refuses.
+  const { canAnswer } = await import("../src/inference.ts");
+  const broken = h.service.answers.filter((q) => !canAnswer(q));
+  assert.deepEqual(broken, [], `health advertises questions the service refuses:\n  ${broken.join("\n  ")}`);
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();

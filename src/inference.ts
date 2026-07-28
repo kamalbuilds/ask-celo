@@ -409,6 +409,23 @@ export function canAnswer(q: string): boolean {
   return TOPICS.some((t) => test(t.match, q));
 }
 
+/**
+ * One example per topic, for /api/health.
+ *
+ * An agent reading the service needs to know what it can ask before paying.
+ * These are asserted answerable, so the list cannot drift from what the topic
+ * table actually serves.
+ */
+export const TOPIC_EXAMPLES = [
+  "what is a dollar worth in kenyan shillings",
+  "how much does it cost to send money to india",
+  "what does a transfer cost",
+  "what is cUSD",
+  "what is x402",
+  "how long does a transaction take",
+  "how much are you charging me",
+] as const;
+
 export async function answer(q: string): Promise<string> {
   const topic = TOPICS.find((t) => test(t.match, q));
   if (topic) return topic.run(q);

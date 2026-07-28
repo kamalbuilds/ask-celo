@@ -5,7 +5,7 @@ import { ExactEvmScheme } from "@x402/evm/exact/server";
 import { HTTPFacilitatorClient } from "@x402/core/server";
 import { getAddress } from "viem";
 import { NETWORK, CFG, PRICE } from "./config.js";
-import { ABOUT_MATCH, aboutAnswer, answer, canAnswer, SUGGESTIONS } from "./inference.js";
+import { ABOUT_MATCH, aboutAnswer, answer, canAnswer, SUGGESTIONS, TOPIC_EXAMPLES } from "./inference.js";
 import { recordReceipt, receiptStats, receiptsEnabled } from "./receipts.js";
 import { settleRefund } from "./refund.js";
 
@@ -178,6 +178,20 @@ export function createApp() {
   app.get("/api/health", (c) =>
     c.json({
       ok: true,
+      // What this sells, in the same document as what it costs. An agent
+      // deciding whether to buy should not have to pay first to find out
+      // whether the answer is relevant, and a marketplace crawler has nothing
+      // else to read. Derived from the topic table, so it cannot drift from
+      // what the service actually answers.
+      service: {
+        name: "Ask",
+        description:
+          "Answers questions about money on Celo from live chain reads: exchange " +
+          "rates from the Mento oracle, what a transfer costs, remittance " +
+          "comparisons, stablecoin supply, and block finality.",
+        answers: TOPIC_EXAMPLES,
+        free: "Questions about the service, and questions it cannot answer, are not charged.",
+      },
       network: NETWORK,
       caip: CFG.caip,
       payTo: PAY_TO,
