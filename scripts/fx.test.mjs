@@ -162,7 +162,9 @@ await check("realistic first questions are answerable, not refused", async () =>
   const questions = [
     "how much is 100 dollars in kenyan shillings",
     "send $50 to nigeria",
-    "cheapest way to pay my mum in ghana",
+    // Ghana: no cedi on the oracle, but this is a remittance-cost question,
+    // which we answer from gas rather than an FX rate.
+    "cheapest way to send money to ghana",
     "how much does it cost to send money to india",
     "what's the fee to cash out",
     "how long does a transaction take",
@@ -170,7 +172,7 @@ await check("realistic first questions are answerable, not refused", async () =>
     "how much are you charging me",
     "what is cUSD",
     "how many cKES exist",
-    "dollar to rupee",
+    "dollar to reais",
   ];
   const missed = questions.filter((q) => !canAnswer(q));
   assert.deepEqual(missed, [], `these would be refused:\n  ${missed.join("\n  ")}`);
@@ -198,6 +200,43 @@ await check("the quoted minimum top-up matches the smallest button", async () =>
   const amounts = [...html.matchAll(/data-amount="([\d.]+)"/g)].map((m) => Number(m[1]));
   assert.equal(Math.min(...amounts), TOPUP_MIN_USD, "TOPUP_MIN_USD is not the smallest button on the page");
   assert.equal(TOPUP_MIN_QUESTIONS, Math.floor(TOPUP_MIN_USD / PRICE.usd), "the quoted question count is wrong");
+});
+
+
+await check("a currency the oracle does not carry is refused, not invented", async () => {
+  // "1000 naira to dollars" returned a Kenyan shilling rate: a confident lie
+  // about someone's money, charged for. The oracle carries five currencies.
+  // Anything else must be refused before payment, not approximated.
+  const { canAnswer } = await import("../src/inference.ts");
+  const unsupported = [
+    "1000 naira to dollars",
+    "convert 20 usd to ugx",
+    "best rate to send to philippines",
+    "rate for cedis",
+  ];
+  const charged = unsupported.filter((q) => canAnswer(q));
+  assert.deepEqual(charged, [], `these would be charged for a rate we cannot read:\n  ${charged.join("\n  ")}`);
+});
+
+await check("the paywall refuses exactly what the answer cannot serve", async () => {
+  // The match and the answer must agree. As a regex plus a separate lookup,
+  // "dollar to rupee" matched (it says "dollar") and then dead-ended inside
+  // the answer — a paid "name two currencies". Both now call fxPair.
+  const { fxPair, canAnswer } = await import("../src/inference.ts");
+  for (const q of ["dollar to rupee", "1000 naira to dollars", "usd to usd"]) {
+    assert.equal(fxPair(q), null, `${q} should not resolve to a pair`);
+    assert.equal(canAnswer(q), false, `${q} reaches the paywall but cannot be answered`);
+  }
+  assert.deepEqual(fxPair("dollar to shillings"), ["cUSD", "cKES"]);
+});
+
+await check("an off-topic price question does not answer with Celo gas", async () => {
+  // A bare "price" match sent "stock price of apple" to the gas answer:
+  // charged, confident, and about something else entirely.
+  const { canAnswer } = await import("../src/inference.ts");
+  for (const q of ["stock price of apple", "how much is bitcoin", "what time is it"]) {
+    assert.equal(canAnswer(q), false, `${q} would be charged and answered with chain data`);
+  }
 });
 
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);

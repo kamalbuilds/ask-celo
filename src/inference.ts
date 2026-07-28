@@ -122,11 +122,33 @@ async function ratePerCelo(token: string) {
 }
 
 /**
+ * The currencies the Mento oracle actually carries. Anything outside this
+ * list is refused for free rather than answered with a different country's
+ * rate — "1000 naira to dollars" was returning a Kenyan shilling figure,
+ * which is a confident lie about someone's money.
+ */
+export const SUPPORTED_CURRENCIES = "US dollars, euros, Kenyan shillings, Colombian pesos and Brazilian reais";
+
+const FX_MATCH =
+  /\b(usd|eur|kes|cop|brl|real|reais|shillings?|pesos?|dollars?|euros?|kenya\w*|colombia\w*|brazil\w*|cusd|ceur|ckes|ccop|creal)\b/i;
+
+/**
  * What a paycheck is worth in another currency, from the oracle the chain
  * itself settles against. This is the question someone sending money home
  * actually asks, and the answer is worth more than the cent it costs.
  */
-async function fxAnswer(q: string) {
+/**
+ * The two currencies a question is about, or null if we cannot serve it.
+ *
+ * The match and the answer must use exactly this function. When they were a
+ * regex and a separate lookup, "dollar to rupee" matched (it says "dollar")
+ * and then dead-ended in the answer — a paid "name two currencies". A question
+ * we cannot answer must be refused before payment, which means the paywall
+ * needs the real resolution, not an approximation of it.
+ */
+export function fxPair(
+  q: string,
+): [keyof typeof MENTO_MAINNET, keyof typeof MENTO_MAINNET] | null {
   // Match on how people actually name money, not on ticker symbols. "pesos",
   // "brazil" and "shillings" must each find the right currency; matching only
   // the ticker made every query fall through to the same default.
@@ -145,10 +167,18 @@ async function fxAnswer(q: string) {
     .sort((x, y) => x[1] - y[1])
     .map(([sym]) => sym);
 
+  // One currency means the other is implied to be the dollar, which is what
+  // "what are shillings worth" means. Two of the same is not a question.
   const pair: [keyof typeof MENTO_MAINNET, keyof typeof MENTO_MAINNET] =
-    found.length >= 2 ? [found[0], found[1]] : ["cUSD", found[0] ?? "cKES"];
+    found.length >= 2 ? [found[0], found[1]] : ["cUSD", found[0] ?? "cUSD"];
+  return pair[0] === pair[1] ? null : pair;
+}
+
+async function fxAnswer(q: string) {
+  const pair = fxPair(q);
+  // Unreachable through /api/ask, which refuses when fxPair returns null.
+  if (!pair) return SUGGESTIONS;
   const [a, b] = pair;
-  if (a === b) return `Name two different currencies, for example "USD to KES".`;
 
   const [rateA, rateB] = await Promise.all([
     ratePerCelo(MENTO_MAINNET[a]),
@@ -248,13 +278,23 @@ async function celoPriceAnswer() {
   );
 }
 
-const TOPICS: Array<{ match: RegExp; run: (q: string) => Promise<string> }> = [
+// A topic matches by pattern, or by a predicate when the real test is more
+// than a regex — the FX pair must be resolved, not guessed, so the paywall
+// refuses exactly what the answer cannot serve.
+type Match = RegExp | ((q: string) => boolean);
+const test = (m: Match, q: string) => (typeof m === "function" ? m(q) : m.test(q));
+
+const TOPICS: Array<{ match: Match; run: (q: string) => Promise<string> }> = [
   {
     match: /\b(remit\w*|send(ing)? (money|\$?\d+)|transfer fee|western union|moneygram|wire|abroad|back home|diaspora|cash out)\b/i,
     run: remittanceAnswer,
   },
   {
-    match: /\b(usd|eur|kes|cop|brl|real|reais|shillings?|pesos?|dollars?|euros?|kenya\w*|colombia\w*|brazil\w*|rate|exchange|fx|convert|worth)\b/i,
+    // A currency name alone is not enough: the oracle carries five, and
+    // matching "rate" or "convert" on its own answered a Nigerian naira
+    // question with a Kenyan shilling rate. Require a currency we actually
+    // carry, so anything else is refused for free instead of invented.
+    match: (q: string) => fxPair(q) !== null,
     run: fxAnswer,
   },
   // Before the gas match: "how much are you charging me" is about this
@@ -265,7 +305,13 @@ const TOPICS: Array<{ match: RegExp; run: (q: string) => Promise<string> }> = [
   },
   // Before the gas match: "price of celo" is the asset, not a transaction.
   { match: /\b(price|worth|value) of (a )?celo\b|\bcelo (price|worth)\b/i, run: celoPriceAnswer },
-  { match: /\bgas|fee|cost|cheap|charg\w+|price/i, run: gasAnswer },
+  // "price" alone matched "stock price of apple" and answered with Celo gas.
+  // Anchor the fee questions to a transaction, or to the chain itself.
+  {
+    match:
+      /\b(gas|fees?|cheap|expensive)\b|\b(cost|price)\b.*\b(tx|transaction|transfer|send|celo|chain|network|question)\b|\b(transaction|transfer)\b.*\b(cost|price|fee)\b/i,
+    run: gasAnswer,
+  },
   { match: /\bstablecoin|mento|cusd|ckes|creal|ceur|ccop|local currency/i, run: stablecoinAnswer },
   { match: /\bx402|facilitator|micropayment|pay per|402/i, run: x402Answer },
   { match: /\bblock|height|latency|fast|finality|tps|how long|slow|confirm/i, run: blockAnswer },
@@ -285,11 +331,11 @@ export const SUGGESTIONS =
   `Every answer is read at the moment you ask, not cached.`;
 
 export function canAnswer(q: string): boolean {
-  return TOPICS.some((t) => t.match.test(q));
+  return TOPICS.some((t) => test(t.match, q));
 }
 
 export async function answer(q: string): Promise<string> {
-  const topic = TOPICS.find((t) => t.match.test(q));
+  const topic = TOPICS.find((t) => test(t.match, q));
   if (topic) return topic.run(q);
 
   // Unreachable via /api/ask, which refuses unanswerable questions for free
