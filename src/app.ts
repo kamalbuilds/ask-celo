@@ -183,7 +183,22 @@ export function createApp() {
   app.post("/api/ask", async (c) => {
     const { q } = await c.req.json<{ q?: string }>().catch(() => ({ q: undefined }));
     if (!q?.trim()) return c.json({ error: "ask something" }, 400);
-    return c.json({ answer: await answer(q) });
+    try {
+      return c.json({ answer: await answer(q) });
+    } catch (err) {
+      // A chain read failed after the user paid. The x402 middleware cancels
+      // settlement on any status >= 400, so a 502 here means they are not
+      // charged — but only if we return a status instead of letting the throw
+      // become a bare "Internal Server Error" with no explanation.
+      console.error("answer failed:", err);
+      return c.json(
+        {
+          error: "could not read the chain just now",
+          hint: "Your payment was not taken. Try again in a moment.",
+        },
+        502,
+      );
+    }
   });
 
   return app;

@@ -616,5 +616,21 @@ await check("the answer is announced to a screen reader", async () => {
   assert.match(answer, /aria-live/, "the answer element has no aria-live, so it is never announced");
 });
 
+
+await check("a failed chain read says the payment was not taken", async () => {
+  // Verified against a dead RPC: the handler threw and Hono returned a bare
+  // "Internal Server Error". The x402 middleware cancels settlement on any
+  // status >= 400, so the money was safe — but the user had no way to know
+  // that, and "Internal Server Error" after paying reads as money gone.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const app = readFileSync(fileURLToPath(new URL("../src/app.ts", import.meta.url)), "utf8");
+  const handler = app.slice(app.indexOf('app.post("/api/ask"'));
+  assert.match(handler.slice(0, 900), /try\s*\{/, "the answer call is not guarded");
+  assert.match(handler.slice(0, 900), /not taken|not charged/i, "the failure never says the payment was not taken");
+  // Must be >= 400 or the middleware settles a request that produced no answer.
+  assert.match(handler.slice(0, 900), /50[0-9],/, "the failure status would let settlement proceed");
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
