@@ -82,8 +82,15 @@ async function stablecoinAnswer() {
     .map((r) => `${r.symbol} ${fmt(r.total)}`)
     .join(", ");
   return (
-    `Live Mento stablecoin supply on Celo mainnet: ${listed}. ` +
-    `These are local-currency stablecoins, which is why Celo suits payments in markets where a dollar balance is not what people actually spend.`
+    // Say what they are before saying how much exists. "What is cUSD" was
+    // answered with a supply table, which is a fact about the thing rather
+    // than an answer to the question.
+    `Mento stablecoins are Celo's local-currency stablecoins, each tracking one ` +
+    `national currency and backed by an on-chain reserve. On-chain they are now ` +
+    `named USDm, KESm, COPm, EURm and BRLm. The older cUSD/cKES names still ` +
+    `appear in docs and wallets, but the contracts report the new symbols. ` +
+    `Live supply on Celo mainnet: ${listed}. ` +
+    `They are why Celo suits payments in markets where a dollar balance is not what people actually spend.`
   );
 }
 
@@ -250,7 +257,7 @@ async function remittanceAnswer(q: string) {
     // the cost of the transfer: the recipient still has to turn stablecoins
     // into money they can spend, and that spread is the number that decides
     // whether any of this actually helps them.
-    `That is the network fee only — cashing out to local currency costs whatever ` +
+    `That is the network fee only. Cashing out to local currency costs whatever ` +
     `your exchange or P2P desk charges, and that spread, not the transfer, is ` +
     `usually the real cost.`
   );
@@ -325,7 +332,7 @@ export async function aboutAnswer() {
     `There is no sign-up and no account: your browser holds a key, you top it up, and questions ` +
     `are paid one at a time over x402. Questions I cannot answer are refused before payment, ` +
     `so you are never charged for a non-answer. ` +
-    `Unused credit goes back to your wallet whenever you want — the button at the bottom of the page ` +
+    `Unused credit goes back to your wallet whenever you want: the button at the bottom of the page ` +
     `returns the full remaining balance, and it works even though that key holds no CELO for gas. ` +
     `Questions are answered from live chain reads and are not stored. ` +
     `Any wallet works, including MiniPay, and you never need to hold CELO: fees are paid in USDC. ` +

@@ -315,6 +315,36 @@ await check("the World Bank figure names its source and issue", async () => {
   assert.match(a, /Issue \d+/i, "no issue named, so staleness is invisible");
 });
 
+
+await check("a definition question gets a definition", async () => {
+  // "What is cUSD" was answered with a supply table: a fact about the thing,
+  // not an answer to the question asked. Someone paying a cent to learn what
+  // something is should not have to infer it from a number.
+  const { answer } = await import("../src/inference.ts");
+  const a = await answer("what is cUSD");
+  assert.match(a, /stablecoins are|tracking one/i, "the answer never says what they are");
+  // And it must name the symbols the chain actually reports. Mento renamed
+  // cUSD to USDm on-chain; an answer using only the old names disagrees with
+  // every explorer the reader might check.
+  assert.match(a, /USDm/, "the answer does not name the on-chain symbol");
+  assert.match(a, /cUSD/, "the answer does not connect the old name to the new");
+});
+
+await check("answers use no em dashes", async () => {
+  // House style, and these are read by people on phones where an em dash
+  // renders as a stray hyphen or a box.
+  const { answer, aboutAnswer } = await import("../src/inference.ts");
+  const texts = [
+    await aboutAnswer(),
+    await answer("what is cUSD"),
+    await answer("how much does it cost to send money to india"),
+    await answer("how much are you charging me"),
+  ];
+  for (const t of texts) {
+    assert.ok(!t.includes("\u2014"), `em dash in an answer: ${t.slice(0, 90)}`);
+  }
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 
 for (const [a, b] of [["cUSD", "cKES"], ["cUSD", "cCOP"], ["cUSD", "cREAL"], ["cEUR", "cKES"]]) {
