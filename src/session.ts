@@ -172,6 +172,9 @@ export async function sweepBack(to: Address): Promise<Hex | null> {
   // Our own server relays this to the facilitator, because settlement needs the
   // metering key and that must never reach the browser.
   const res = await fetch("/api/refund", {
+    // Same reasoning as the ask path: the button is disabled while this runs,
+    // so an unbounded wait is a stuck UI with no explanation.
+    signal: AbortSignal.timeout(60_000),
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ signature, authorization }),

@@ -277,7 +277,12 @@ async function remittanceAnswer(q: string) {
 }
 
 async function x402Answer() {
-  const res = await fetch(`${CFG.facilitator}/supported`);
+  // The user has already paid by the time this runs. A slow facilitator must
+  // fail fast enough that the handler can return an error, rather than being
+  // killed by the platform with the payment already settled.
+  const res = await fetch(`${CFG.facilitator}/supported`, {
+    signal: AbortSignal.timeout(10_000),
+  });
   const kinds = (await res.json()).kinds ?? [];
   const v2 = kinds.filter((k: { x402Version: number }) => k.x402Version === 2);
   return (

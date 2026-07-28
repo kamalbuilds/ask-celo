@@ -61,6 +61,10 @@ export async function settleRefund(signature: string, authorization: Record<stri
   };
 
   const res = await fetch(`${CFG.facilitator}/settle`, {
+    // A refund is the exit. Without a bound, a stalled facilitator holds the
+    // request open until the platform kills it, and the user is told nothing
+    // at all rather than "nothing moved, try again".
+    signal: AbortSignal.timeout(45_000),
     method: "POST",
     headers: {
       "content-type": "application/json",

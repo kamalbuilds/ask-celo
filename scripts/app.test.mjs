@@ -2235,5 +2235,39 @@ await check("a paid request cannot hang forever", async () => {
   assert.match(main, /nothing was charged/i, "a timeout does not tell the user their money is safe");
 });
 
+
+await check("no network call in a request path is unbounded", async () => {
+  // Every fetch that happens while a user is waiting must have a deadline.
+  // Without one a stalled upstream holds the request until the platform kills
+  // it, and the user is told nothing — on the ask path they have already paid,
+  // and on the refund path they are trying to leave.
+  //
+  // Assert the class, not the four instances I happened to find: the next
+  // upstream someone adds gets caught by this rather than by a user.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const root = fileURLToPath(new URL("..", import.meta.url));
+
+  const files = ["src/app.ts", "src/refund.ts", "src/inference.ts", "src/session.ts", "web/main.ts"];
+  const unbounded = [];
+  for (const f of files) {
+    const src = readFileSync(`${root}/${f}`, "utf8");
+    const lines = src.split("\n");
+    lines.forEach((line, i) => {
+      if (!/await (pay)?[fF]etch\(/.test(line)) return;
+      // The options object may span several lines; look ahead a little.
+      const window = lines.slice(i, i + 8).join("\n");
+      if (!/AbortSignal\.timeout\(/.test(window)) {
+        unbounded.push(`${f}:${i + 1}  ${line.trim().slice(0, 60)}`);
+      }
+    });
+  }
+  assert.deepEqual(
+    unbounded,
+    [],
+    `network calls with no deadline, on paths a user waits on:\n  ${unbounded.join("\n  ")}`,
+  );
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
