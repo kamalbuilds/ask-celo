@@ -1934,8 +1934,14 @@ await check("the README's claim about Bazaar discovery matches the facilitator",
   const { readFileSync } = await import("node:fs");
   const { fileURLToPath } = await import("node:url");
   const readme = readFileSync(fileURLToPath(new URL("../README.md", import.meta.url)), "utf8");
-  const claimsMissing = /discovery\/resources[\s\S]{0,120}404/.test(readme);
-  if (claimsMissing) {
+  // Assert the claim exists rather than skipping when it does not: rewording
+  // the note would otherwise disable the check that keeps it honest.
+  assert.match(
+    readme,
+    /discovery\/resources[\s\S]{0,120}404/,
+    "the README no longer documents that Celo serves no Bazaar directory",
+  );
+  {
     assert.equal(
       res.status,
       404,
@@ -1975,6 +1981,44 @@ await check("no check can silently opt out of its own assertions", async () => {
     [],
     `checks that return early without announcing a skip:\n  ${offenders.join("\n  ")}`,
   );
+});
+
+
+await check("no check passes by looping over an empty list", async () => {
+  // A `for (const x of things) assert(...)` proves nothing when `things` is
+  // empty, and it reads exactly like a passing test. Several checks here loop
+  // over doc files, currencies, buttons and env vars — each is silent if its
+  // list ever comes back empty, which a refactor or a rename can cause.
+  //
+  // Rather than police the shape, prove the lists are non-empty by counting
+  // the things they iterate.
+  const { readFileSync, readdirSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const root = fileURLToPath(new URL("..", import.meta.url));
+
+  const walk = (dir, prefix) =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory() ? walk(`${dir}/${e.name}`, `${prefix}${e.name}/`) : `${prefix}${e.name}`,
+    );
+
+  const docs = ["README.md", "STATUS.md", ...walk(`${root}/docs`, "docs/")].filter((f) =>
+    f.endsWith(".md"),
+  );
+  assert.ok(docs.length >= 6, `only ${docs.length} docs found; the doc checks would be near-vacuous`);
+
+  const { MENTO_MAINNET, TOPIC_EXAMPLES } = await import("../src/inference.ts");
+  assert.ok(
+    Object.keys(MENTO_MAINNET).length >= 5,
+    "the oracle table shrank; the per-currency checks cover less than they claim",
+  );
+  assert.ok(TOPIC_EXAMPLES.length >= 5, "the advertised example list shrank");
+
+  const main = readFileSync(`${root}/web/main.ts`, "utf8");
+  const buttons = [...main.matchAll(/\$\("([a-z-]+)"\)\.addEventListener/g)].length;
+  assert.ok(buttons >= 3, `only ${buttons} button handlers found; the double-tap check covers less`);
+
+  const suites = readdirSync(`${root}/scripts`).filter((f) => f.endsWith(".test.mjs"));
+  assert.ok(suites.length >= 4, `only ${suites.length} test suites found`);
 });
 
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
