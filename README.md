@@ -154,6 +154,10 @@ Things that cost time to discover:
 - **`@x402/extensions` ships more than the docs suggest.** `declareDiscoveryExtension`
   (Bazaar) puts your endpoint's method, body shape and example into the 402
   challenge, so an agent can call you without reading prose. Worth ten minutes.
+  Note the limit, though: `withBazaar(...).listResources()` fetches
+  `<facilitator>/discovery/resources`, and on Celo that is a 404. There is no
+  directory to be listed in yet, so discovery helps an agent that already has
+  your URL and does nothing to help one find you.
 - **Do not build on `builderCodeResourceServerExtension` for Celo attribution.**
   It exists, and `GET /supported` on the Celo facilitator returns
   `"extensions": []`, so the facilitator ignores it. Settlements are attributed

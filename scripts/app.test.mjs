@@ -1881,5 +1881,33 @@ await check("the facilitator's advertised extensions match what we rely on", asy
   assert.ok(ours, "the facilitator no longer offers `exact` on our network");
 });
 
+
+await check("the README's claim about Bazaar discovery matches the facilitator", async () => {
+  // The README tells other builders that Celo has no Bazaar directory yet, so
+  // nobody wastes an afternoon expecting to be listed. If that changes we
+  // should find out from a failing check, not from a stale note — and we
+  // should probably register.
+  const { NETWORKS } = await import("../src/config.ts");
+  const res = await fetch(`${NETWORKS.mainnet.facilitator}/discovery/resources`, {
+    signal: AbortSignal.timeout(20_000),
+  }).catch(() => null);
+  if (!res) {
+    console.log("  skip  facilitator unreachable");
+    return;
+  }
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const readme = readFileSync(fileURLToPath(new URL("../README.md", import.meta.url)), "utf8");
+  const claimsMissing = /discovery\/resources[\s\S]{0,120}404/.test(readme);
+  if (claimsMissing) {
+    assert.equal(
+      res.status,
+      404,
+      `the README says Celo serves no Bazaar directory, but /discovery/resources returned ${res.status}. ` +
+        "If it is live now, register the service and update the note.",
+    );
+  }
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
