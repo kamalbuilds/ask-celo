@@ -193,4 +193,46 @@ await check("the top-up the PRODUCT builds carries the tag", () => {
   assert.ok(tagged.startsWith(plain), "the suffix altered the transfer it rides on");
 });
 
+
+await check("recording is a no-op without a configured wallet, not a crash", async () => {
+  // recordReceipt runs inside the settlement hook, after the user has paid.
+  // Removing the guard stayed green here, but in production it would throw on
+  // every sale the moment RECEIPTS_CONTRACT or RECORDER_PRIVATE_KEY is unset,
+  // which is exactly the state the service ships in today.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const src = readFileSync(fileURLToPath(new URL("../src/receipts.ts", import.meta.url)), "utf8")
+    .replace(/^\s*\/\/.*$/gm, "");
+  const fn = src.slice(src.indexOf("export function recordReceipt"));
+  assert.match(
+    fn.slice(0, 200),
+    /if \(!wallet \|\| !address\) return;/,
+    "recordReceipt does not bail out when receipts are unconfigured",
+  );
+
+  // And it must actually be safe to call: this is the shipped configuration.
+  const { recordReceipt } = await import("../src/receipts.ts");
+  assert.doesNotThrow(
+    () => recordReceipt("0x1111111111111111111111111111111111111111", 10_000n, `0x${"22".repeat(32)}`),
+    "recordReceipt throws when receipts are not configured",
+  );
+});
+
+await check("a receipt falls back to native gas rather than being dropped", async () => {
+  // The recorder prefers paying gas in USDC so it needs no CELO. Not every
+  // adapter is registered on every network: Sepolia reverts with "Currency not
+  // in the directory". Without the fallback the receipt is simply lost, and a
+  // lost receipt is revenue that happened and cannot be counted.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const src = readFileSync(fileURLToPath(new URL("../src/receipts.ts", import.meta.url)), "utf8");
+  const fn = src.slice(src.indexOf("export function recordReceipt"));
+  assert.match(fn, /feeCurrency/, "the recorder no longer tries to pay gas in USDC");
+  assert.match(
+    fn,
+    /\.catch\(\(\) => wallet\.sendTransaction\(tx as never\)\)/,
+    "no native-gas fallback: a receipt is dropped when the adapter is unavailable",
+  );
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);

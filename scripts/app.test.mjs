@@ -1346,5 +1346,36 @@ await check("the currency list the answer quotes is the list it can serve", asyn
   }
 });
 
+
+await check("every facilitator call carries the same credential, from one place", async () => {
+  // The refund path builds its own request to the facilitator, separate from
+  // the payment middleware. A mutation hardcoding a wrong key there stayed
+  // green: refunds would fail in production while payments worked, and the
+  // refund path is the one users reach when they want their money back.
+  //
+  // Both must read the same env var and send the same header name. A typo in
+  // either is invisible until someone tries to leave.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const read = (f) =>
+    readFileSync(fileURLToPath(new URL(`../src/${f}`, import.meta.url)), "utf8").replace(
+      /^\s*\/\/.*$/gm,
+      "",
+    );
+
+  for (const f of ["app.ts", "refund.ts"]) {
+    const src = read(f);
+    if (!src.includes("X-API-Key")) continue;
+    assert.match(
+      src,
+      /"X-API-Key":\s*process\.env\.X402_API_KEY!/,
+      `${f} sends an API key that does not come from X402_API_KEY`,
+    );
+  }
+
+  // And the facilitator URL must come from config, not be restated.
+  assert.match(read("refund.ts"), /CFG\.facilitator/, "refund.ts does not use the configured facilitator");
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
