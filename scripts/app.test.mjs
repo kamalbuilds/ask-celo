@@ -1486,5 +1486,62 @@ await check("every command and link in the docs exists", async () => {
   assert.deepEqual(dead, [], `dead relative links:\n  ${dead.join("\n  ")}`);
 });
 
+
+await check("the agent-buyer snippet in TRY-IT still compiles against the real packages", async () => {
+  // TRY-IT.md hands an agent developer code to copy. If an import moves or a
+  // class is renamed in @x402, that snippet silently becomes wrong and the
+  // first thing a machine buyer does is fail. Verified by running the real
+  // snippet against the live service with an unfunded key: it reaches the
+  // documented 402 path rather than throwing on an import.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const doc = readFileSync(fileURLToPath(new URL("../docs/TRY-IT.md", import.meta.url)), "utf8");
+
+  // Parse the imports the snippet ACTUALLY writes, rather than a list I keep
+  // in the test: hardcoding the names here meant renaming one in the doc went
+  // unnoticed, which is the same duplicate-truth bug in a new place.
+  const imports = [...doc.matchAll(/import\s*\{([^}]+)\}\s*from\s*"([^"]+)"/g)];
+  assert.ok(imports.length >= 3, "the snippet no longer imports the x402 client packages");
+  for (const [, names, mod] of imports) {
+    if (!mod.startsWith("@x402") && !mod.startsWith("viem")) continue;
+    const loaded = await import(mod).catch(() => null);
+    assert.ok(loaded, `TRY-IT imports from "${mod}", which does not resolve`);
+    for (const n of names.split(",").map((x) => x.trim()).filter(Boolean)) {
+      assert.ok(n in loaded, `TRY-IT imports { ${n} } from "${mod}", which does not export it`);
+    }
+  }
+
+  // And the endpoint it posts to must be the one we serve.
+  assert.match(doc, /\/api\/ask/, "the snippet no longer posts to /api/ask");
+  assert.match(doc, /payment-response/, "the snippet no longer reads the settlement receipt");
+});
+
+await check("the terms are readable without paying, as TRY-IT promises", async () => {
+  // The doc tells a buyer they can read the price before spending anything.
+  // Two ways, both of which must work: plain JSON on health, and the 402
+  // challenge header.
+  const health = await fetch(`${LIVE_URL}/api/health`, { signal: AbortSignal.timeout(20_000) })
+    .then((r) => r.json())
+    .catch(() => null);
+  if (!health) {
+    console.log("  skip  live service unreachable");
+    return;
+  }
+  const { PRICE } = await import("../src/config.ts");
+  assert.equal(health.price.display, PRICE.display, "health quotes a price we do not charge");
+
+  const res = await fetch(`${LIVE_URL}/api/ask`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ q: "dollar to shillings" }),
+    signal: AbortSignal.timeout(20_000),
+  });
+  assert.equal(res.status, 402);
+  const header = res.headers.get("payment-required");
+  assert.ok(header, "the 402 carries no terms, so a buyer cannot read them before paying");
+  const accepts = JSON.parse(Buffer.from(header, "base64").toString()).accepts[0];
+  assert.equal(accepts.amount, PRICE.amount, "the challenge amount disagrees with PRICE");
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();
