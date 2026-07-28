@@ -2807,5 +2807,30 @@ await check("checks that walk a list assert the list is populated", async () => 
   );
 });
 
+
+await check("register start opens the sign-in link and names a working next command", async () => {
+  // The link expires in minutes and the next step is blocked on a human
+  // reading it, so this is the one place in the flow where saving a
+  // copy-paste is worth real effort. Opening must never be required: headless
+  // shells have no opener, and the URL is printed regardless.
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const src = readFileSync(fileURLToPath(new URL("./register.mjs", import.meta.url)), "utf8");
+
+  assert.match(src, /authorizeUrl/, "the sign-in link is no longer printed");
+  assert.match(src, /xdg-open|darwin/, "the sign-in link is not opened");
+  // The open must be in a try/catch: a missing opener cannot break the flow.
+  const openBlock = src.slice(src.indexOf("const opener"), src.indexOf("Expires ${out.expiresAt}"));
+  assert.match(openBlock, /try \{/, "opening the browser is not guarded; a headless shell would fail here");
+
+  // And the command it tells you to run next must exist as written.
+  const nextCmd = /npm run register -- claim/.test(src);
+  assert.ok(nextCmd, "the follow-up command is not the npm form a reader would use");
+  const pkg = JSON.parse(
+    readFileSync(fileURLToPath(new URL("../package.json", import.meta.url)), "utf8"),
+  );
+  assert.ok(pkg.scripts.register, "npm run register does not exist");
+});
+
 console.log(`\n${n} checks, ${process.exitCode ? "FAILED" : "all passing"}`);
 server.close();

@@ -106,10 +106,24 @@ switch (cmd) {
         agent: { name: "Jcode", harness: "jcode", model: "claude-opus" },
       },
     });
-    console.log("Open this, sign in, then copy the short code it shows:\n");
+    console.log("Sign in, then copy the short code it shows:\n");
     console.log(out.authorizeUrl);
+
+    // Open it. The link expires in minutes and the next step is blocked on a
+    // human reading it, so saving a copy-paste is worth more here than
+    // anywhere else in the flow. Failing to open is not an error: the URL is
+    // already printed above.
+    const opener = process.platform === "darwin" ? "open" : process.platform === "win32" ? "start" : "xdg-open";
+    try {
+      const { execFileSync } = await import("node:child_process");
+      execFileSync(opener, [out.authorizeUrl], { stdio: "ignore", timeout: 5000 });
+      console.log("\n(opened in your browser)");
+    } catch {
+      // Headless, or no opener. The link above still works.
+    }
+
     console.log(`\nExpires ${out.expiresAt}. Then run:`);
-    console.log("  node scripts/register.mjs claim CELO-XXXX-0000");
+    console.log("  npm run register -- claim CELO-XXXX-0000");
     break;
   }
 
